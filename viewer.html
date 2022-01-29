@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seals Viewer</title>
+
+    <style>
+        * {
+            border: none;
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -5;
+        }
+        span {
+            display: block;
+            position: fixed;
+            margin: 20px;
+            font-size: 1.2em;
+        }
+        button {
+            display: block;
+            position: fixed;
+            margin: 20px;
+            right: 0;
+            top: 0;
+            font-size: 1.2em;
+            padding: 10px;
+            cursor: pointer;
+        }
+        input {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="import"/>
+    <script type='module'>
+        
+        import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
+        
+        // setup renderer
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.append(renderer.domElement);
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('lightblue');
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ color: 'black', wireframe: true }));
+        const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
+        mesh.position.z = mesh2.position.z = -2;
+        mesh.rotation.x = mesh2.rotation.x = 0.3;
+        scene.add(mesh);
+        scene.add(mesh2);
+        const light = new THREE.DirectionalLight();
+        light.position.set(1, 1, 1);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight('#333'));
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+        function render () {
+            mesh.rotation.y = mesh2.rotation.y += 0.005;
+            renderer.render(scene, camera);
+            requestAnimationFrame(render);
+        }
+        render();
+        
+        // import from json
+        const input = document.getElementById('import');
+        input.addEventListener('change', () => {
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = JSON.parse(reader.result);
+                
+                // build up geometry
+                const vertices = [];
+                const indices = [];
+                for (const tri of result.triangles) {
+                    indices.push(tri[0], tri[1], tri[2]);
+                }
+                for (const vert of result.particles) {
+                    vertices.push(vert.position[0], vert.position[1], vert.position[2]);
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                mesh.geometry = mesh2.geometry = geo;
+                
+            };
+            reader.readAsText(input.files[0]);
+        });
+        
+    </script>
+</body>
