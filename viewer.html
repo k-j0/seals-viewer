@@ -25,14 +25,20 @@
             margin: 20px;
             font-size: 1.2em;
         }
-        button {
+        .controls {
             display: block;
             position: fixed;
-            margin: 20px;
-            right: 0;
-            top: 0;
+            padding: 20px;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+        }
+        button {
+            display: inline-block;
+            margin: 5px;
             font-size: 1.2em;
             padding: 10px;
+            width: 60px;
             cursor: pointer;
         }
         input, h3, p {
@@ -44,7 +50,11 @@
     <input type="file" id="import"/>
     <h3 id='date'></h3>
     <p id='stats'></p>
-    <button id='play-pause'>&nbsp;⏯&nbsp;</button>
+    <div class="controls">
+        <button id='replay'>⏮</button>
+        <button id='play-pause'>⏯</button>
+        <button id='skip'>⏭</button>
+    </div>
     <script type='module'>
         
         import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
@@ -110,18 +120,29 @@
         
         // import from json
         const input = document.getElementById('import');
+        let replay = null;
+        let skip = null;
+        let playthroughIdx = 0;
         input.addEventListener('change', () => {
 
             const reader = new FileReader();
-            reader.onload = async () => {
+            reader.onload = () => {
                 const result = JSON.parse(reader.result);
                 
-                console.log(result);
                 if (Array.isArray(result)) {
-                    for (let elem of result) {
-                        readSurface(elem);
-                        await new Promise(resolve => setTimeout(resolve, 5));
+                    replay = async () => {
+                        let idx = ++playthroughIdx;
+                        for (let elem of result) {
+                            if (idx != playthroughIdx) return;
+                            readSurface(elem);
+                            await new Promise(resolve => setTimeout(resolve, 5));
+                        };
                     };
+                    skip = () => {
+                        ++playthroughIdx;
+                        readSurface(result[result.length - 1]);  
+                    };
+                    replay();
                 } else {
                     readSurface(result);
                 }
@@ -130,10 +151,16 @@
             reader.readAsText(input.files[0]);
         });
         
-        // play/pause
+        // controls
         document.getElementById('play-pause').addEventListener('click', () => {
             paused = !paused;
             if (!paused) render(); 
+        });
+        document.getElementById('replay').addEventListener('click', () => {
+            if (replay != null) replay();
+        });
+        document.getElementById('skip').addEventListener('click', () => {
+            if (skip != null) skip(); 
         });
         
     </script>
