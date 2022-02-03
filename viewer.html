@@ -54,6 +54,7 @@
         <button id='replay'>⏮</button>
         <button id='play-pause'>⏯</button>
         <button id='skip'>⏭</button>
+        <button id="sphere">◎</button>
     </div>
     <script type='module'>
         
@@ -65,12 +66,19 @@
         document.body.append(renderer.domElement);
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('lightblue');
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ color: 'black', wireframe: true }));
-        const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
-        mesh.position.z = mesh2.position.z = -2;
-        mesh.rotation.x = mesh2.rotation.x = 0.3;
-        scene.add(mesh);
-        scene.add(mesh2);
+        const group = new THREE.Group();
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: 'black', wireframe: true }));
+        group.add(mesh);
+        const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
+        group.add(mesh2);
+        const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
+        group.add(sphere);
+        const sphere2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
+        group.add(sphere2);
+        sphere.visible = sphere2.visible = false;
+        group.position.z = -2;
+        group.rotation.x = 0.3;
+        scene.add(group);
         const light = new THREE.DirectionalLight();
         light.position.set(1, 1, 1);
         scene.add(light);
@@ -93,7 +101,7 @@
             return `${pad(d.getFullYear(),4)}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         }
         
-        // reads a surface json object and updates the display
+        // reads a surface object and updates the display
         function readSurface (result) {
             // display generation date and stats
             document.getElementById('date').innerHTML = getTimestamp(result.date);
@@ -161,6 +169,9 @@
         });
         document.getElementById('skip').addEventListener('click', () => {
             if (skip != null) skip(); 
+        });
+        document.getElementById('sphere').addEventListener('click', () => {
+            sphere.visible = sphere2.visible = !sphere.visible; 
         });
         
     </script>
