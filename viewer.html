@@ -35,13 +35,15 @@
             padding: 10px;
             cursor: pointer;
         }
-        input {
-            margin: 10px;
+        input, h3, p {
+            margin: 5px 10px;
         }
     </style>
 </head>
 <body>
     <input type="file" id="import"/>
+    <h3 id='date'></h3>
+    <p id='stats'></p>
     <script type='module'>
         
         import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
@@ -70,6 +72,14 @@
         }
         render();
         
+        // adapted from https://stackoverflow.com/a/67705873
+        function getTimestamp (unix) {
+            const pad = (n,s=2) => (`${new Array(s).fill(0)}${n}`).slice(-s);
+            const d = new Date();
+            d.setTime(unix * 1000);
+            return `${pad(d.getFullYear(),4)}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+        
         // import from json
         const input = document.getElementById('import');
         input.addEventListener('change', () => {
@@ -77,6 +87,13 @@
             const reader = new FileReader();
             reader.onload = () => {
                 const result = JSON.parse(reader.result);
+                
+                // display generation date and stats
+                document.getElementById('date').innerHTML = getTimestamp(result.date);
+                document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
+                                                              Tris: ${result.triangles.length}<br/>
+                                                              Particles: ${result.particles.length}<br/>
+                                                              Iterations: ${result.timesteps}`;
                 
                 // build up geometry
                 const vertices = [];
