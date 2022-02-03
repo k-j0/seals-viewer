@@ -47,10 +47,10 @@
     </style>
 </head>
 <body>
-    <input type="file" id="import"/>
     <h3 id='date'></h3>
     <p id='stats'></p>
     <div class="controls">
+        <button id="load">⭱</button>
         <button id='replay'>⏮</button>
         <button id='play-pause'>⏯</button>
         <button id='skip'>⏭</button>
@@ -86,9 +86,9 @@
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
         let paused = false;
         function render () {
-            if (paused) return;
             mesh.rotation.y = mesh2.rotation.y += 0.005;
             renderer.render(scene, camera);
+            if (paused) return;
             requestAnimationFrame(render);
         }
         render();
@@ -127,7 +127,8 @@
         }
         
         // import from json
-        const input = document.getElementById('import');
+        const input = document.createElement('input');
+        input.type = 'file';
         let replay = null;
         let skip = null;
         let playthroughIdx = 0;
@@ -136,6 +137,11 @@
             const reader = new FileReader();
             reader.onload = () => {
                 const result = JSON.parse(reader.result);
+                
+                if (paused) {
+                    paused = false;
+                    render();
+                }
                 
                 if (Array.isArray(result)) {
                     replay = async () => {
@@ -160,18 +166,22 @@
         });
         
         // controls
-        document.getElementById('play-pause').addEventListener('click', () => {
-            paused = !paused;
-            if (!paused) render(); 
+        document.getElementById('load').addEventListener('click', () => {
+            input.click(); 
         });
         document.getElementById('replay').addEventListener('click', () => {
             if (replay != null) replay();
+        });
+        document.getElementById('play-pause').addEventListener('click', () => {
+            paused = !paused;
+            if (!paused) render(); 
         });
         document.getElementById('skip').addEventListener('click', () => {
             if (skip != null) skip(); 
         });
         document.getElementById('sphere').addEventListener('click', () => {
-            sphere.visible = sphere2.visible = !sphere.visible; 
+            sphere.visible = sphere2.visible = !sphere.visible;
+            if (paused) render();
         });
         
     </script>
