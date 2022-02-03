@@ -80,35 +80,48 @@
             return `${pad(d.getFullYear(),4)}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         }
         
+        // reads a surface json object and updates the display
+        function readSurface (result) {
+            // display generation date and stats
+            document.getElementById('date').innerHTML = getTimestamp(result.date);
+            document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
+                                                          Tris: ${result.triangles.length}<br/>
+                                                          Particles: ${result.particles.length}<br/>
+                                                          Iterations: ${result.timesteps}`;
+            
+            // build up geometry
+            const vertices = [];
+            const indices = [];
+            for (const tri of result.triangles) {
+                indices.push(tri[0], tri[1], tri[2]);
+            }
+            for (const vert of result.particles) {
+                vertices.push(vert.position[0], vert.position[1], vert.position[2]);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            mesh.geometry = mesh2.geometry = geo;
+        }
+        
         // import from json
         const input = document.getElementById('import');
         input.addEventListener('change', () => {
 
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
                 const result = JSON.parse(reader.result);
                 
-                // display generation date and stats
-                document.getElementById('date').innerHTML = getTimestamp(result.date);
-                document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
-                                                              Tris: ${result.triangles.length}<br/>
-                                                              Particles: ${result.particles.length}<br/>
-                                                              Iterations: ${result.timesteps}`;
-                
-                // build up geometry
-                const vertices = [];
-                const indices = [];
-                for (const tri of result.triangles) {
-                    indices.push(tri[0], tri[1], tri[2]);
+                console.log(result);
+                if (Array.isArray(result)) {
+                    for (let elem of result) {
+                        readSurface(elem);
+                        await new Promise(resolve => setTimeout(resolve, 5));
+                    };
+                } else {
+                    readSurface(result);
                 }
-                for (const vert of result.particles) {
-                    vertices.push(vert.position[0], vert.position[1], vert.position[2]);
-                }
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
-                geo.setIndex(indices);
-                geo.computeVertexNormals();
-                mesh.geometry = mesh2.geometry = geo;
                 
             };
             reader.readAsText(input.files[0]);
