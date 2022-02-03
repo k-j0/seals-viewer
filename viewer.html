@@ -44,6 +44,7 @@
     <input type="file" id="import"/>
     <h3 id='date'></h3>
     <p id='stats'></p>
+    <button id='play-pause'>Pause/Play</button>
     <script type='module'>
         
         import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
@@ -65,7 +66,9 @@
         scene.add(light);
         scene.add(new THREE.AmbientLight('#333'));
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+        let paused = false;
         function render () {
+            if (paused) return;
             mesh.rotation.y = mesh2.rotation.y += 0.005;
             renderer.render(scene, camera);
             requestAnimationFrame(render);
@@ -125,6 +128,12 @@
                 
             };
             reader.readAsText(input.files[0]);
+        });
+        
+        // play/pause
+        document.getElementById('play-pause').addEventListener('click', () => {
+            paused = !paused;
+            if (!paused) render(); 
         });
         
     </script>
