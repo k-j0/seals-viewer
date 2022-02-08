@@ -5,6 +5,9 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seals Viewer</title>
+    
+    <!-- ChartJS from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
 
     <style>
         * {
@@ -13,7 +16,7 @@
             padding: 0;
             font-family: sans-serif;
         }
-        canvas {
+        canvas.three {
             position: fixed;
             top: 0;
             left: 0;
@@ -44,6 +47,18 @@
         input, h3, p {
             margin: 5px 10px;
         }
+        .analysis {
+            background: rgba(0, 0, 0, 0.7);
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 20px;
+            color: white;
+            cursor: zoom-out;
+        }
     </style>
 </head>
 <body>
@@ -55,14 +70,17 @@
         <button id='play-pause'>⏯</button>
         <button id='skip'>⏭</button>
         <button id="sphere">◎</button>
+        <button id='analysis'>🛈</button>
     </div>
     <script type='module'>
         
         import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
+        import * as Analysis from './analysis.js';
         
         // setup renderer
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.domElement.className = 'three';
         document.body.append(renderer.domElement);
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('lightblue');
@@ -102,7 +120,10 @@
         }
         
         // reads a surface object and updates the display
+        let currentSurface = null;
         function readSurface (result) {
+            currentSurface = result;
+            
             // display generation date and stats
             document.getElementById('date').innerHTML = getTimestamp(result.date);
             document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
@@ -182,6 +203,17 @@
         document.getElementById('sphere').addEventListener('click', () => {
             sphere.visible = sphere2.visible = !sphere.visible;
             if (paused) render();
+        });
+        document.getElementById('analysis').addEventListener('click', () => {
+            if (currentSurface === null) return;
+            const div = document.createElement('div');
+            div.className = 'analysis';
+            
+            // display analysis results in div
+            Analysis.sharedVertices(JSON.parse(JSON.stringify(currentSurface)), div);
+            
+            div.addEventListener('click', () => document.body.removeChild(div));
+            document.body.append(div);
         });
         
     </script>
