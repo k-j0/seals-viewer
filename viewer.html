@@ -75,6 +75,7 @@
     <script type='module'>
         
         import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
+        import { OrbitControls } from './OrbitControls.js';
         import * as Analysis from './analysis.js';
         
         // setup renderer
@@ -102,9 +103,14 @@
         scene.add(light);
         scene.add(new THREE.AmbientLight('#333'));
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target = new THREE.Vector3(0, 0, -2);
         let paused = false;
+        let rotationSpeed = 0.005;
+        renderer.domElement.addEventListener('pointerdown', () => { rotationSpeed = 0; });
         function render () {
-            mesh.rotation.y = mesh2.rotation.y += 0.005;
+            mesh.rotation.y = mesh2.rotation.y += rotationSpeed;
+            controls.update();
             renderer.render(scene, camera);
             if (paused) return;
             requestAnimationFrame(render);
