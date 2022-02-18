@@ -88,7 +88,7 @@
         const group = new THREE.Group();
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: 'black', wireframe: true }));
         group.add(mesh);
-        const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true, side: THREE.DoubleSide }));
+        const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
         group.add(mesh2);
         const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
         group.add(sphere);
