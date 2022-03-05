@@ -16,6 +16,11 @@
             padding: 0;
             font-family: sans-serif;
         }
+        hr {
+            border: solid rgba(0, 0, 0, 0.5) 1px;
+            max-width: 200px;
+            margin: 5px 0;
+        }
         canvas.three {
             position: fixed;
             top: 0;
@@ -91,11 +96,11 @@
         group.add(mesh);
         const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
         group.add(mesh2);
-        const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
-        group.add(sphere);
-        const sphere2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
-        group.add(sphere2);
-        sphere.visible = sphere2.visible = false;
+        const boundary = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
+        group.add(boundary);
+        const boundary2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
+        group.add(boundary2);
+        boundary.visible = boundary2.visible = false;
         group.position.z = -2;
         scene.add(group);
         const light = new THREE.DirectionalLight();
@@ -109,7 +114,7 @@
         let rotationSpeed = 0.005;
         renderer.domElement.addEventListener('pointerdown', () => { rotationSpeed = 0; });
         function render () {
-            mesh.rotation.y = mesh2.rotation.y += rotationSpeed;
+            boundary.rotation.y = boundary2.rotation.y = mesh.rotation.y = mesh2.rotation.y += rotationSpeed;
             controls.update();
             renderer.render(scene, camera);
             if (paused) return;
@@ -130,12 +135,41 @@
         function readSurface (result) {
             currentSurface = result;
             
+            // legacy files
+            if (!('boundary' in result)) result.boundary = { type: 'sphere', radius: 1, extent: 0.05 };
+            
             // display generation date and stats
             document.getElementById('date').innerHTML = getTimestamp(result.date);
             document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
                                                           Tris: ${result.triangles.length}<br/>
                                                           Particles: ${result.particles.length}<br/>
-                                                          Iterations: ${result.timesteps}`;
+                                                          Iterations: ${result.timesteps}<br/>
+                                                          <hr/>
+                                                          Attraction Magnitude: ${result.attractionMagnitude}<br/>
+                                                          Repulsion Magnitude Factor: ${result.repulsionMagnitudeFactor}<br/>
+                                                          Damping: ${result.damping}<br/>
+                                                          Noise: ${result.noise}<br/>
+                                                          Repulsion Anisotropy: ${result.repulsionAnisotropy}<br/>
+                                                          Boundary type: ${result.boundary ? result.boundary.type : 'none'}<br/>
+                                                          Delta time: ${result.dt}`;
+            
+            // update boundary geometry
+            boundary.rotation.z = boundary2.rotation.z = 0;
+            if (result.boundary === null) {
+                boundary.geometry = boundary2.geometry = new THREE.BufferGeometry();
+            } else {
+                switch (result.boundary.type) {
+                    case 'cylinder':
+                        boundary.geometry = boundary2.geometry = new THREE.CylinderGeometry(result.boundary.radius, result.boundary.radius, 100, 32, 320, true);
+                        boundary.rotation.z = boundary2.rotation.z = Math.PI * 0.5;
+                        break;
+                    default:
+                        console.error('Unknown boundary type for boundary', result.boundary, ', displaying sphere by default.');
+                    case 'sphere':
+                        boundary.geometry = boundary2.geometry = new THREE.IcosahedronGeometry(result.boundary.radius, 8);
+                        break;
+                }
+            }
             
             // build up geometry
             const vertices = [];
@@ -207,7 +241,7 @@
             if (skip != null) skip(); 
         });
         document.getElementById('sphere').addEventListener('click', () => {
-            sphere.visible = sphere2.visible = !sphere.visible;
+            boundary.visible = boundary2.visible = !boundary.visible;
             if (paused) render();
         });
         document.getElementById('shading').addEventListener('click', () => {
