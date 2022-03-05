@@ -70,6 +70,7 @@
         <button id='play-pause'>⏯</button>
         <button id='skip'>⏭</button>
         <button id="sphere">◎</button>
+        <button id='shading'>✦</button>
         <button id='analysis'>🛈</button>
     </div>
     <script type='module'>
@@ -96,7 +97,6 @@
         group.add(sphere2);
         sphere.visible = sphere2.visible = false;
         group.position.z = -2;
-        group.rotation.x = 0.3;
         scene.add(group);
         const light = new THREE.DirectionalLight();
         light.position.set(1, 1, 1);
@@ -208,6 +208,12 @@
         });
         document.getElementById('sphere').addEventListener('click', () => {
             sphere.visible = sphere2.visible = !sphere.visible;
+            if (paused) render();
+        });
+        document.getElementById('shading').addEventListener('click', () => {
+            mesh.visible = !mesh.visible;
+            mesh2.material.flatShading = !mesh2.material.flatShading;
+            mesh2.material.needsUpdate = true;
             if (paused) render();
         });
         document.getElementById('analysis').addEventListener('click', () => {
