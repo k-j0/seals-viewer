@@ -155,14 +155,13 @@
                                                           Delta time: ${result.dt}`;
             
             // update boundary geometry
-            boundary.rotation.z = boundary2.rotation.z = 0;
             if (result.boundary === null) {
                 boundary.geometry = boundary2.geometry = new THREE.BufferGeometry();
             } else {
                 switch (result.boundary.type) {
                     case 'cylinder':
-                        boundary.geometry = boundary2.geometry = new THREE.CylinderGeometry(result.boundary.radius, result.boundary.radius, 100, 32, 320, true);
-                        boundary.rotation.z = boundary2.rotation.z = Math.PI * 0.5;
+                        boundary.geometry = boundary2.geometry = new THREE.CylinderGeometry(result.boundary.radius, result.boundary.radius, 100, 32, 320, true)
+                            .rotateX(Math.PI / 2);
                         break;
                     default:
                         console.error('Unknown boundary type for boundary', result.boundary, ', displaying sphere by default.');
