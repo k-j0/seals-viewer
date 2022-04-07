@@ -141,10 +141,10 @@
             // display generation date and stats
             document.getElementById('date').innerHTML = getTimestamp(result.date);
             document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
-                                                          Tris: ${result.triangles.length}<br/>
-                                                          Particles: ${result.particles.length}<br/>
+                                                          Tris: ${result.triangles?.length}<br/>
+                                                          Particles: ${result.particles?.length}<br/>
                                                           Iterations: ${result.timesteps}<br/>
-                                                          Machine: ${result.machine.toLowerCase()}<br/>
+                                                          Machine: ${result.machine?.toLowerCase()}<br/>
                                                           <hr/>
                                                           Attraction Magnitude: ${result.attractionMagnitude}<br/>
                                                           Repulsion Magnitude Factor: ${result.repulsionMagnitudeFactor}<br/>
