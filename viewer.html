@@ -140,19 +140,20 @@
             
             // display generation date and stats
             document.getElementById('date').innerHTML = getTimestamp(result.date);
-            document.getElementById('stats').innerHTML = `Seed: ${result.seed}<br/>
-                                                          Tris: ${result.triangles?.length}<br/>
-                                                          Particles: ${result.particles?.length}<br/>
-                                                          Iterations: ${result.timesteps}<br/>
-                                                          Machine: ${result.machine?.toLowerCase()}<br/>
+            document.getElementById('stats').innerHTML = `Seed: ${result.seed ?? 'N/A'}<br/>
+                                                          Tris: ${result.triangles?.length ?? 'N/A'}<br/>
+                                                          Particles: ${result.particles?.length ?? 'N/A'}<br/>
+                                                          Iterations: ${result.timesteps ?? 'N/A'}<br/>
+                                                          Machine: ${result.machine?.toLowerCase() ?? 'N/A'}<br/>
+                                                          Runtime: ${result.runtime ? result.runtime + ' ms' : 'N/A'}<br/>
                                                           <hr/>
-                                                          Attraction Magnitude: ${result.attractionMagnitude}<br/>
-                                                          Repulsion Magnitude Factor: ${result.repulsionMagnitudeFactor}<br/>
-                                                          Damping: ${result.damping}<br/>
-                                                          Noise: ${result.noise}<br/>
-                                                          Repulsion Anisotropy: ${result.repulsionAnisotropy}<br/>
+                                                          Attraction Magnitude: ${result.attractionMagnitude ?? 'N/A'}<br/>
+                                                          Repulsion Magnitude Factor: ${result.repulsionMagnitudeFactor ?? 'N/A'}<br/>
+                                                          Damping: ${result.damping ?? 'N/A'}<br/>
+                                                          Noise: ${result.noise ?? 'N/A'}<br/>
+                                                          Repulsion Anisotropy: ${result.repulsionAnisotropy ?? 'N/A'}<br/>
                                                           Boundary type: ${result.boundary ? result.boundary.type : 'none'}<br/>
-                                                          Delta time: ${result.dt}`;
+                                                          Delta time: ${result.dt ?? 'N/A'}`;
             
             // update boundary geometry
             if (result.boundary === null) {
