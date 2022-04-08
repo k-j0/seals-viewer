@@ -64,6 +64,17 @@
             color: white;
             cursor: zoom-out;
         }
+        .cross-section {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -78,11 +89,14 @@
         <button id='shading'>✦</button>
         <button id='analysis'>🛈</button>
     </div>
+    <div class="cross-section">
+    </div>
     <script type='module'>
         
         import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
         import { OrbitControls } from './OrbitControls.js';
         import * as Analysis from './analysis.js';
+        import { CrossSection } from './cross-section.js';
         
         // setup renderer
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
@@ -101,6 +115,11 @@
         const boundary2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
         group.add(boundary2);
         boundary.visible = boundary2.visible = false;
+        const crossSectionPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({
+            color: 'orange', transparent: true, opacity: 0.5, side: THREE.DoubleSide
+        }));
+        crossSectionPlane.visible = false;
+        group.add(crossSectionPlane);
         group.position.z = -2;
         scene.add(group);
         const light = new THREE.DirectionalLight();
@@ -114,7 +133,7 @@
         let rotationSpeed = 0.005;
         renderer.domElement.addEventListener('pointerdown', () => { rotationSpeed = 0; });
         function render () {
-            boundary.rotation.y = boundary2.rotation.y = mesh.rotation.y = mesh2.rotation.y += rotationSpeed;
+            crossSectionPlane.rotation.y = boundary.rotation.y = boundary2.rotation.y = mesh.rotation.y = mesh2.rotation.y += rotationSpeed;
             controls.update();
             renderer.render(scene, camera);
             if (paused) return;
@@ -261,6 +280,30 @@
             
             div.addEventListener('click', () => document.body.removeChild(div));
             document.body.append(div);
+        });
+        
+        // cross-section interface
+        let ctrlPressed = false;
+        const crossSectionDiv = document.querySelector('.cross-section');
+        crossSectionDiv.addEventListener('click', () => crossSectionDiv.style.display = 'none');
+        crossSectionDiv.style.display = 'none';
+        document.addEventListener('keydown', (evnt) => {
+            if (!ctrlPressed && evnt.code == 'ControlLeft') {
+                crossSectionPlane.visible = ctrlPressed = true;
+            }
+        });
+        document.addEventListener('keyup', (evnt) => {
+            if (ctrlPressed && evnt.code == 'ControlLeft') {
+                crossSectionPlane.visible = ctrlPressed = false;
+                const svg = CrossSection(mesh.geometry, [0, 0, 0], [0, 0, 0]);
+                const img = new Image();
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+                img.width = 512;
+                img.height = 512;
+                crossSectionDiv.innerHTML = '';
+                crossSectionDiv.append(img);
+                crossSectionDiv.style.display = null;
+            }
         });
         
     </script>
