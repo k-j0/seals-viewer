@@ -22,12 +22,16 @@ function linePlaneIntersection (a, b) {
 
 export function CrossSection (originalGeo, position, rotation) {
     
+    if (!Array.isArray(position)) {
+        position = [position.x, position.y, position.z];
+    }
+    
     // Clone & reorient geometry
     const geo = originalGeo.clone();
     geo.translate(-position[0], -position[1], -position[2]);
-    geo.rotateX(-rotation[0] * Math.PI / 180.0);
-    geo.rotateY(-rotation[1] * Math.PI / 180.0);
-    geo.rotateZ(-rotation[2] * Math.PI / 180.0);
+    geo.rotateX(-rotation[0]);
+    geo.rotateY(-rotation[1]);
+    geo.rotateZ(-rotation[2]);
     
     // Find all triangle intersections in the XY plane
     const vertices = geo.getAttribute('position').array;
@@ -101,7 +105,7 @@ export function CrossSection (originalGeo, position, rotation) {
             } else {
                 svg += 'L ';
             }
-            let x = p[0] - 0.5;
+            let x = -p[0] + 0.5;
             let y = -p[1] + 0.5;
             if (aspectRatio > 1) {
                 y /= aspectRatio;
