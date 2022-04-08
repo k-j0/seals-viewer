@@ -88,6 +88,7 @@ export function CrossSection (originalGeo, position, rotation) {
             ];
         }
     }
+    const aspectRatio = (maxX - minX) / (maxY - minY);
     
     // Create in-place svg
     let svg = '';
@@ -100,8 +101,16 @@ export function CrossSection (originalGeo, position, rotation) {
             } else {
                 svg += 'L ';
             }
-            const x = Math.round(p[0] * 512);
-            const y = Math.round((1-p[1]) * 512);
+            let x = p[0] - 0.5;
+            let y = -p[1] + 0.5;
+            if (aspectRatio > 1) {
+                y /= aspectRatio;
+            } else {
+                x *= aspectRatio;
+            }
+            x += 0.5; y += 0.5;
+            x = Math.round(x * 512);
+            y = Math.round(y * 512);
             svg += x + ' ' + y + ' ';
         }
     }

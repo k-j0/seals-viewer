@@ -115,7 +115,7 @@
         const boundary2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
         group.add(boundary2);
         boundary.visible = boundary2.visible = false;
-        const crossSectionPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({
+        const crossSectionPlane = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5), new THREE.MeshBasicMaterial({
             color: 'orange', transparent: true, opacity: 0.5, side: THREE.DoubleSide
         }));
         crossSectionPlane.visible = false;
