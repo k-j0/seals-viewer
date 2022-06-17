@@ -16,15 +16,19 @@
             padding: 0;
             font-family: sans-serif;
         }
+        body {
+            background: lightblue;
+        }
         hr {
             border: solid rgba(0, 0, 0, 0.5) 1px;
             max-width: 200px;
             margin: 5px 0;
         }
-        canvas.three {
+        canvas.three, canvas.svg {
             position: fixed;
             top: 0;
-            left: 0;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: -5;
         }
         span {
@@ -98,7 +102,9 @@
         import * as Analysis from './analysis.js';
         import { CrossSection } from './cross-section.js';
         
-        // setup renderer
+        let dimension = 3; // current dimension being displayed; can be 3 or 2
+        
+        // setup 3D renderer
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.domElement.className = 'three';
@@ -141,6 +147,14 @@
         }
         render();
         
+        // Setup 2D svg renderer
+        const svgCanvas = document.createElement('canvas');
+        svgCanvas.width = svgCanvas.height = Math.min(window.innerWidth, window.innerHeight);
+        svgCanvas.className = 'svg';
+        svgCanvas.style.display = 'none';
+        document.body.append(svgCanvas);
+        const svgCtx = svgCanvas.getContext('2d');
+        
         // adapted from https://stackoverflow.com/a/67705873
         function getTimestamp (unix) {
             const pad = (n,s=2) => (`${new Array(s).fill(0)}${n}`).slice(-s);
@@ -157,9 +171,13 @@
             // legacy files
             if (!('boundary' in result)) result.boundary = { type: 'sphere', radius: 1, extent: 0.05 };
             
+            // dimensionality to display
+            dimension = result.dimension ?? 3;
+            
             // display generation date and stats
             document.getElementById('date').innerHTML = getTimestamp(result.date);
             document.getElementById('stats').innerHTML = `Seed: ${result.seed ?? 'N/A'}<br/>
+                                                          Dimension: ${dimension}D<br/>
                                                           Tris: ${result.triangles?.length ?? 'N/A'}<br/>
                                                           Particles: ${result.particles?.length ?? 'N/A'}<br/>
                                                           Iterations: ${result.timesteps ?? 'N/A'}<br/>
@@ -172,39 +190,81 @@
                                                           Noise: ${result.noise ?? 'N/A'}<br/>
                                                           Repulsion Anisotropy: ${result.repulsionAnisotropy ?? 'N/A'}<br/>
                                                           Boundary type: ${result.boundary ? result.boundary.type : 'none'}<br/>
+                                                          Growth strategy: ${result.growthStrategy ?? 'unknown'}<br/>
                                                           Delta time: ${result.dt ?? 'N/A'}`;
             
-            // update boundary geometry
-            if (result.boundary === null) {
-                boundary.geometry = boundary2.geometry = new THREE.BufferGeometry();
-            } else {
-                switch (result.boundary.type) {
-                    case 'cylinder':
-                        boundary.geometry = boundary2.geometry = new THREE.CylinderGeometry(result.boundary.radius, result.boundary.radius, 100, 32, 320, true)
-                            .rotateX(Math.PI / 2);
-                        break;
-                    default:
-                        console.error('Unknown boundary type for boundary', result.boundary, ', displaying sphere by default.');
-                    case 'sphere':
-                        boundary.geometry = boundary2.geometry = new THREE.IcosahedronGeometry(result.boundary.radius, 8);
-                        break;
-                }
-            }
+            if (dimension == 3) {
             
-            // build up geometry
-            const vertices = [];
-            const indices = [];
-            for (const tri of result.triangles) {
-                indices.push(tri[0], tri[1], tri[2]);
+                svgCanvas.style.display = 'none';
+                renderer.domElement.style.display = null;
+                
+                // update boundary geometry
+                if (result.boundary === null) {
+                    boundary.geometry = boundary2.geometry = new THREE.BufferGeometry();
+                } else {
+                    switch (result.boundary.type) {
+                        case 'cylinder':
+                            boundary.geometry = boundary2.geometry = new THREE.CylinderGeometry(result.boundary.radius, result.boundary.radius, 100, 32, 320, true)
+                                .rotateX(Math.PI / 2);
+                            break;
+                        default:
+                            console.error('Unknown boundary type for boundary', result.boundary, ', displaying sphere by default.');
+                        case 'sphere':
+                            boundary.geometry = boundary2.geometry = new THREE.IcosahedronGeometry(result.boundary.radius, 8);
+                            break;
+                    }
+                }
+                
+                // build up geometry
+                const vertices = [];
+                const indices = [];
+                for (const tri of result.triangles) {
+                    indices.push(tri[0], tri[1], tri[2]);
+                }
+                for (const vert of result.particles) {
+                    vertices.push(vert.position[0], vert.position[1], vert.position[2]);
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                mesh.geometry = mesh2.geometry = geo;
+            } else {
+                
+                svgCanvas.style.display = null;
+                renderer.domElement.style.display = 'none';
+                
+                svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
+                
+                if (result.boundary !== null) {
+                    switch (result.boundary.type) {
+                        case 'sphere':
+                            svgCtx.fillStyle = '#666';
+                            svgCtx.strokeStyle = '#111';
+                            svgCtx.beginPath();
+                            svgCtx.arc(svgCanvas.width/2, svgCanvas.height/2, svgCanvas.width * result.boundary.radius * 0.5 * 0.9, 0, 2 * Math.PI);
+                            svgCtx.fill();
+                            svgCtx.stroke();
+                            break;
+                        default:
+                            console.error('Unknown boundary type for boundary', result.boundary, '!');
+                    }
+                }
+                
+                svgCtx.fillStyle = '#fff';
+                svgCtx.strokeStyle = '#000';
+                let path = 'M ';
+                let current = 0;
+                do {
+                    let point = result.particles[current];
+                    path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
+                    current = point.next;
+                    if (current == 0) path += 'Z';
+                    else path += 'L ';
+                } while (current != 0);
+                svgCtx.fill(new Path2D(path));
+                svgCtx.stroke(new Path2D(path));
             }
-            for (const vert of result.particles) {
-                vertices.push(vert.position[0], vert.position[1], vert.position[2]);
-            }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
-            geo.setIndex(indices);
-            geo.computeVertexNormals();
-            mesh.geometry = mesh2.geometry = geo;
         }
         
         // import from json
@@ -276,7 +336,11 @@
             div.className = 'analysis';
             
             // display analysis results in div
-            Analysis.sharedVertices(JSON.parse(JSON.stringify(currentSurface)), div);
+            if (dimension == 3) {
+                Analysis.sharedVertices(JSON.parse(JSON.stringify(currentSurface)), div);
+            } else if (dimension == 2) {
+                Analysis.fractalDimension2D(currentSurface, div);
+            }
             
             div.addEventListener('click', () => document.body.removeChild(div));
             document.body.append(div);
