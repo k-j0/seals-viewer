@@ -339,7 +339,7 @@
             if (dimension == 3) {
                 Analysis.sharedVertices(JSON.parse(JSON.stringify(currentSurface)), div);
             } else if (dimension == 2) {
-                Analysis.fractalDimension2D(currentSurface, div);
+                Analysis.fractalDimension2D(currentSurface, div, svgCtx, svgCanvas);
             }
             
             div.addEventListener('click', () => document.body.removeChild(div));

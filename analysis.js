@@ -64,10 +64,12 @@ function sharedVertices (surface, div) {
 }
 
 // Outputs fractal dimension for 2D line
-function fractalDimension2D (line, div) {
+function fractalDimension2D (line, div, svgCtx, svgCanvas) {
     
-    const numSamples = 5000;
-    const groupSize = 0.01;
+    const display = false; // turn to true to display a single sample on the svg canvas
+    const numSamples = display ? 1 : 5000;
+    const groupAverages = false;
+    const groupSize = 0.0075;
     
     
     // sample euclidean and walk distance from 2 points, numSamples times
@@ -75,6 +77,17 @@ function fractalDimension2D (line, div) {
         const xdiff = line.particles[a].position[0] - line.particles[b].position[0];
         const ydiff = line.particles[a].position[1] - line.particles[b].position[1];
         return Math.sqrt(xdiff * xdiff + ydiff * ydiff);
+    }
+    function toSvgPos (x) {
+        return parseInt((x * 0.5 * 0.9 + 0.5) * svgCanvas.width);
+    }
+    function drawPt (i, fill, stroke) {
+        svgCtx.fillStyle = fill;
+        svgCtx.strokeStyle = stroke;
+        svgCtx.beginPath();
+        svgCtx.arc(toSvgPos(line.particles[i].position[0]), toSvgPos(line.particles[i].position[1]), 2, 0, 2 * Math.PI);
+        svgCtx.fill();
+        svgCtx.stroke();
     }
     const samples = [];
     for (let sample = 0; sample < numSamples; ++sample) {
@@ -96,6 +109,7 @@ function fractalDimension2D (line, div) {
             const d = c;
             c = line.particles[c].next;
             right += euclideanDist(c, d);
+            if (display && c != b) drawPt(c, 'orange', 'purple');
         }
         
         // walk distance, left
@@ -105,6 +119,13 @@ function fractalDimension2D (line, div) {
             const d = c;
             c = line.particles[c].previous;
             left += euclideanDist(c, d);
+            if (display && c != b) drawPt(c, 'turquoise', 'blue');
+        }
+        
+        if (display) {
+            // highlight the points on the svg renderer
+            drawPt(a, 'lightgreen', 'green');
+            drawPt(b, 'pink', 'red');
         }
         
         // add to list of samples
@@ -115,26 +136,30 @@ function fractalDimension2D (line, div) {
     }
     
     // group samples with euclidean distances within groupSize units of each other
-    const groups = new Map;
-    for (const sample of samples) {
-        const key = parseInt(Math.round(sample.euclidean / groupSize));
-        if (!groups.has(key)) {
-            groups.set(key, { avgEuclidean: 0, avgWalk: 0, count: 0 });
+    let results;
+    if (groupAverages) {
+        const groups = new Map;
+        for (const sample of samples) {
+            const key = parseInt(Math.round(sample.euclidean / groupSize));
+            if (!groups.has(key)) {
+                groups.set(key, { avgEuclidean: 0, avgWalk: 0, count: 0 });
+            }
+            const val = groups.get(key);
+            val.avgEuclidean += sample.euclidean;
+            val.avgWalk += sample.walk;
+            ++val.count;
         }
-        const val = groups.get(key);
-        val.avgEuclidean += sample.euclidean;
-        val.avgWalk += sample.walk;
-        ++val.count;
+        // average out values
+        for (const [key, group] of groups) {
+            group.avgEuclidean /= group.count;
+            group.avgWalk /= group.count;
+        }
+        results = [...groups].map(([key, val]) => {
+            return { euclidean: val.avgEuclidean, walk: val.avgWalk };
+        });
+    } else {
+        results = samples;
     }
-    // average out values
-    for (const [key, group] of groups) {
-        group.avgEuclidean /= group.count;
-        group.avgWalk /= group.count;
-    }
-    const results = [...groups].map(([key, val]) => {
-        return { euclidean: val.avgEuclidean, walk: val.avgWalk };
-    });
-    //const results = samples;
     
     // display with ChartJS
     const canvas = document.createElement('canvas');
@@ -149,7 +174,7 @@ function fractalDimension2D (line, div) {
         data: {
             labels: results.map(a => a.euclidean),
             datasets: [{
-                label: 'Avg walk distance vs euclidean distance',
+                label: 'Geodesic distance vs euclidean distance',
                 backgroundColor: 'white',
                 data: results.map(a => a.walk)
             }]
@@ -160,6 +185,13 @@ function fractalDimension2D (line, div) {
     // convert to csv to log to console
     let csv = results.map(r => `${r.euclidean},${r.walk}`).join('\n');
     console.log(csv);
+    
+    // convert to python array of arrays (euclidean, geodesic)
+    let py = `
+# Raw auto-generated data points - array of ( euclidean, geodesic ) distance tuples
+data = [${results.map(r => `(${r.euclidean},${r.walk})`).join(',')}]
+`;
+    console.log(py);
 }
 
 
