@@ -92,6 +92,7 @@
         <button id="sphere">◎</button>
         <button id='shading'>✦</button>
         <button id='analysis'>🛈</button>
+        <button id='save'>⇓</button>
     </div>
     <div class="cross-section">
     </div>
@@ -154,6 +155,7 @@
         svgCanvas.style.display = 'none';
         document.body.append(svgCanvas);
         const svgCtx = svgCanvas.getContext('2d');
+        let exportSVG = () => { console.warn('Not yet assigned!'); };
         
         // adapted from https://stackoverflow.com/a/67705873
         function getTimestamp (unix) {
@@ -264,6 +266,26 @@
                 } while (current != 0);
                 svgCtx.fill(new Path2D(path));
                 svgCtx.stroke(new Path2D(path));
+                
+                exportSVG = () => {
+                    const sz = 8192;
+                    let svg = `
+                        <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
+                            <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
+                    `;
+                    const points = [];
+                    let current = 0;
+                    do {
+                        points.push(result.particles[current].position);
+                        current = result.particles[current].next;
+                    } while (current != 0);
+                    svg += `<path
+                                d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
+                                fill='black'
+                            />`
+                    svg += `</svg>`;
+                    return svg;
+                };
             }
         }
         
@@ -344,6 +366,14 @@
             
             div.addEventListener('click', () => document.body.removeChild(div));
             document.body.append(div);
+        });
+        document.getElementById('save').addEventListener('click', () => {
+            const svg = exportSVG();
+            if (svg === undefined) return;
+            const a = document.createElement('a');
+            a.href = `data:image/svg+xml;base64,${btoa(svg)}`;
+            a.download = `seal.svg`;
+            a.click();
         });
         
         // cross-section interface
