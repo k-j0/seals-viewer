@@ -89,16 +89,9 @@ function fractalDimension2D (line, div, svgCtx, svgCanvas) {
         svgCtx.fill();
         svgCtx.stroke();
     }
-    const samples = [];
-    for (let sample = 0; sample < numSamples; ++sample) {
-        
-        // select 2 distinct points
-        let a = parseInt(Math.random() * line.particles.length);
-        let b;
-        do {
-            b = parseInt(Math.random() * line.particles.length);
-        } while (a == b || line.particles[a].next == b || line.particles[b].next == a);
-        
+    
+    // returns { euclidean: ..., geodesic: ... } distances between two points
+    function distances (a, b) {
         // euclidean distance
         const euclidean = euclideanDist(a, b);
         
@@ -128,37 +121,21 @@ function fractalDimension2D (line, div, svgCtx, svgCanvas) {
             drawPt(b, 'pink', 'red');
         }
         
-        // add to list of samples
-        samples.push({
+        return {
             euclidean: euclidean,
-            walk: Math.min(left, right)
-        });
+            geodesic: Math.min(left, right)
+        };
     }
     
-    // group samples with euclidean distances within groupSize units of each other
-    let results;
-    if (groupAverages) {
-        const groups = new Map;
-        for (const sample of samples) {
-            const key = parseInt(Math.round(sample.euclidean / groupSize));
-            if (!groups.has(key)) {
-                groups.set(key, { avgEuclidean: 0, avgWalk: 0, count: 0 });
-            }
-            const val = groups.get(key);
-            val.avgEuclidean += sample.euclidean;
-            val.avgWalk += sample.walk;
-            ++val.count;
-        }
-        // average out values
-        for (const [key, group] of groups) {
-            group.avgEuclidean /= group.count;
-            group.avgWalk /= group.count;
-        }
-        results = [...groups].map(([key, val]) => {
-            return { euclidean: val.avgEuclidean, walk: val.avgWalk };
-        });
-    } else {
-        results = samples;
+    const samples = [];
+    for (let sample = 0; sample < numSamples; ++sample) {
+        
+        // select 2 distinct points
+        const a = parseInt(Math.random() * line.particles.length);
+        const b = parseInt(Math.random() * line.particles.length);
+        
+        // add to list of samples
+        samples.push(distances(a, b));
     }
     
     // display with ChartJS
@@ -172,24 +149,24 @@ function fractalDimension2D (line, div, svgCtx, svgCanvas) {
     new Chart(canvas, {
         type: 'scatter',
         data: {
-            labels: results.map(a => a.euclidean),
+            labels: samples.map(a => a.euclidean),
             datasets: [{
                 label: 'Geodesic distance vs euclidean distance',
                 backgroundColor: 'white',
-                data: results.map(a => a.walk)
+                data: samples.map(a => a.geodesic)
             }]
         },
         options: {}
     });
     
     // convert to csv to log to console
-    let csv = results.map(r => `${r.euclidean},${r.walk}`).join('\n');
+    let csv = samples.map(r => `${r.euclidean},${r.geodesic}`).join('\n');
     console.log(csv);
     
     // convert to python array of arrays (euclidean, geodesic)
     let py = `
 # Raw auto-generated data points - array of ( euclidean, geodesic ) distance tuples
-data = [${results.map(r => `(${r.euclidean},${r.walk})`).join(',')}]
+data = [${samples.map(r => `(${r.euclidean},${r.geodesic})`).join(',')}]
 `;
     console.log(py);
 }
