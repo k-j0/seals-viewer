@@ -88,7 +88,6 @@
         <button id="load">⭱</button>
         <button id='replay'>⏮</button>
         <button id='play-pause'>⏯</button>
-        <button id='skip'>⏭</button>
         <button id="sphere">◎</button>
         <button id='shading'>✦</button>
         <button id='analysis'>🛈</button>
@@ -102,8 +101,7 @@
         import { OrbitControls } from './OrbitControls.js';
         import * as Analysis from './analysis.js';
         import { CrossSection } from './cross-section.js';
-        
-        let dimension = 3; // current dimension being displayed; can be 3 or 2
+        import { JsonImporter, BinaryImporter } from './seal-importer.js';
         
         // setup 3D renderer
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
@@ -155,177 +153,45 @@
         svgCanvas.style.display = 'none';
         document.body.append(svgCanvas);
         const svgCtx = svgCanvas.getContext('2d');
-        let exportSVG = () => { console.warn('Not yet assigned!'); };
-        
-        // adapted from https://stackoverflow.com/a/67705873
-        function getTimestamp (unix) {
-            const pad = (n,s=2) => (`${new Array(s).fill(0)}${n}`).slice(-s);
-            const d = new Date();
-            d.setTime(unix * 1000);
-            return `${pad(d.getFullYear(),4)}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-        }
-        
-        // reads a surface object and updates the display
-        let currentSurface = null;
-        function readSurface (result) {
-            currentSurface = result;
-            
-            // legacy files
-            if (!('boundary' in result)) result.boundary = { type: 'sphere', radius: 1, extent: 0.05 };
-            
-            // dimensionality to display
-            dimension = result.dimension ?? 3;
-            
-            // display generation date and stats
-            document.getElementById('date').innerHTML = getTimestamp(result.date);
-            document.getElementById('stats').innerHTML = `Seed: ${result.seed ?? 'N/A'}<br/>
-                                                          Dimension: ${dimension}D<br/>
-                                                          Tris: ${result.triangles?.length ?? 'N/A'}<br/>
-                                                          Particles: ${result.particles?.length ?? 'N/A'}<br/>
-                                                          Iterations: ${result.timesteps ?? 'N/A'}<br/>
-                                                          Machine: ${result.machine?.toLowerCase() ?? 'N/A'}<br/>
-                                                          Runtime: ${result.runtime ? result.runtime + ' ms' : 'N/A'}<br/>
-                                                          <hr/>
-                                                          Attraction Magnitude: ${result.attractionMagnitude ?? 'N/A'}<br/>
-                                                          Repulsion Magnitude Factor: ${result.repulsionMagnitudeFactor ?? 'N/A'}<br/>
-                                                          Damping: ${result.damping ?? 'N/A'}<br/>
-                                                          Noise: ${result.noise ?? 'N/A'}<br/>
-                                                          Repulsion Anisotropy: ${result.repulsionAnisotropy ?? 'N/A'}<br/>
-                                                          Boundary type: ${result.boundary ? result.boundary.type : 'none'}<br/>
-                                                          Growth strategy: ${result.growthStrategy ?? 'unknown'}<br/>
-                                                          Delta time: ${result.dt ?? 'N/A'}`;
-            
-            if (dimension == 3) {
-            
-                svgCanvas.style.display = 'none';
-                renderer.domElement.style.display = null;
-                
-                // update boundary geometry
-                if (result.boundary === null) {
-                    boundary.geometry = boundary2.geometry = new THREE.BufferGeometry();
-                } else {
-                    switch (result.boundary.type) {
-                        case 'cylinder':
-                            boundary.geometry = boundary2.geometry = new THREE.CylinderGeometry(result.boundary.radius, result.boundary.radius, 100, 32, 320, true)
-                                .rotateX(Math.PI / 2);
-                            break;
-                        default:
-                            console.error('Unknown boundary type for boundary', result.boundary, ', displaying sphere by default.');
-                        case 'sphere':
-                            boundary.geometry = boundary2.geometry = new THREE.IcosahedronGeometry(result.boundary.radius, 8);
-                            break;
-                    }
-                }
-                
-                // build up geometry
-                const vertices = [];
-                const indices = [];
-                for (const tri of result.triangles) {
-                    indices.push(tri[0], tri[1], tri[2]);
-                }
-                for (const vert of result.particles) {
-                    vertices.push(vert.position[0], vert.position[1], vert.position[2]);
-                }
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
-                geo.setIndex(indices);
-                geo.computeVertexNormals();
-                mesh.geometry = mesh2.geometry = geo;
-            } else {
-                
-                svgCanvas.style.display = null;
-                renderer.domElement.style.display = 'none';
-                
-                svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
-                
-                if (result.boundary !== null) {
-                    switch (result.boundary.type) {
-                        case 'sphere':
-                            svgCtx.fillStyle = '#666';
-                            svgCtx.strokeStyle = '#111';
-                            svgCtx.beginPath();
-                            svgCtx.arc(svgCanvas.width/2, svgCanvas.height/2, svgCanvas.width * result.boundary.radius * 0.5 * 0.9, 0, 2 * Math.PI);
-                            svgCtx.fill();
-                            svgCtx.stroke();
-                            break;
-                        default:
-                            console.error('Unknown boundary type for boundary', result.boundary, '!');
-                    }
-                }
-                
-                svgCtx.fillStyle = '#fff';
-                svgCtx.strokeStyle = '#000';
-                let path = 'M ';
-                let current = 0;
-                do {
-                    let point = result.particles[current];
-                    path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
-                    current = point.next;
-                    if (current == 0) path += 'Z';
-                    else path += 'L ';
-                } while (current != 0);
-                svgCtx.fill(new Path2D(path));
-                svgCtx.stroke(new Path2D(path));
-                
-                exportSVG = () => {
-                    const sz = 8192;
-                    let svg = `
-                        <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
-                            <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
-                    `;
-                    const points = [];
-                    let current = 0;
-                    do {
-                        points.push(result.particles[current].position);
-                        current = result.particles[current].next;
-                    } while (current != 0);
-                    svg += `<path
-                                d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
-                                fill='black'
-                            />`
-                    svg += `</svg>`;
-                    return svg;
-                };
-            }
-        }
         
         // import from json
         const input = document.createElement('input');
         input.type = 'file';
-        let replay = null;
-        let skip = null;
-        let playthroughIdx = 0;
+        let importer = null;
         input.addEventListener('change', () => {
+
+            const binary = !input.files[0].name.endsWith('json');
+
+            if (importer !== null) {
+                importer.stop();
+                importer = null;
+            }
 
             const reader = new FileReader();
             reader.onload = () => {
-                const result = JSON.parse(reader.result);
-                
+    
                 if (paused) {
                     paused = false;
                     render();
                 }
-                
-                if (Array.isArray(result)) {
-                    replay = async () => {
-                        let idx = ++playthroughIdx;
-                        for (let elem of result) {
-                            if (idx != playthroughIdx) return;
-                            readSurface(elem);
-                            await new Promise(resolve => setTimeout(resolve, 5));
-                        };
-                    };
-                    skip = () => {
-                        ++playthroughIdx;
-                        readSurface(result[result.length - 1]);  
-                    };
-                    replay();
-                } else {
-                    readSurface(result);
-                }
-                
+
+                const importer = binary ? new BinaryImporter : new JsonImporter;
+                importer.import(reader.result, dimension => {
+                    svgCanvas.style.display = dimension == 3 ? 'none' : null;
+                    renderer.domElement.style.display = dimension == 2 ? 'none' : null;
+                }, boundaryGeo => {
+                    boundary.geometry = boundary2.geometry = boundaryGeo;
+                }, geo => {
+                    mesh.geometry = mesh2.geometry = geo;
+                }, svgCtx, svgCanvas);
+
             };
-            reader.readAsText(input.files[0]);
+
+            if (binary) {
+                reader.readAsArrayBuffer(input.files[0]);
+            } else {
+                reader.readAsText(input.files[0]);
+            }
         });
         
         // controls
@@ -333,14 +199,14 @@
             input.click(); 
         });
         document.getElementById('replay').addEventListener('click', () => {
-            if (replay != null) replay();
+            if (importer !== null) {
+                importer.stop();
+                importer.play();
+            }
         });
         document.getElementById('play-pause').addEventListener('click', () => {
             paused = !paused;
             if (!paused) render(); 
-        });
-        document.getElementById('skip').addEventListener('click', () => {
-            if (skip != null) skip(); 
         });
         document.getElementById('sphere').addEventListener('click', () => {
             boundary.visible = boundary2.visible = !boundary.visible;
@@ -353,6 +219,10 @@
             if (paused) render();
         });
         document.getElementById('analysis').addEventListener('click', () => {
+
+            // @todo!
+            throw `Unimplemented with new importer logic, this needs to be rewritten!`;
+
             if (currentSurface === null) return;
             const div = document.createElement('div');
             div.className = 'analysis';
@@ -368,7 +238,11 @@
             document.body.append(div);
         });
         document.getElementById('save').addEventListener('click', () => {
-            const svg = exportSVG();
+            if (importer === null) {
+                console.warn('No imported surface yet!');
+                return;
+            }
+            const svg = importer.exportSVG();
             if (svg === undefined) return;
             const a = document.createElement('a');
             a.href = `data:image/svg+xml;base64,${btoa(svg)}`;
