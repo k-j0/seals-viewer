@@ -285,7 +285,7 @@ class BinaryImporter extends Importer {
         header += this.#char();
         header += this.#char();
         if (header !== 'SRF') {
-            throw `Invalid header '${header}' != 'SRF', file is not a valid binary surface!`;
+            throw `Invalid header '${header}' != 'SRF' (at location ${this.#idx-3}), file is not a valid binary surface!`;
         }
 
         // read metadata
@@ -307,14 +307,18 @@ class BinaryImporter extends Importer {
         // Read particle positions
         const particles = [];
         for (let i = 0; i < numParticles; ++i) {
-            particles.push(this.#vec(this.dimension));
+            const particle = { position: this.#vec(this.dimension) };
+            if (this.dimension == 2) {
+                particle.next = this.#int();
+            }
+            particles.push(particle);
         }
 
         // Read triangle indices
         let numTriangles = null;
+        const triangles = [];
         if (this.dimension == 3) {
             numTriangles = this.#int();
-            const triangles = [];
             for (let i = 0; i < numTriangles; ++i) {
                 triangles.push(this.#ivec(3));
             }
@@ -342,8 +346,70 @@ class BinaryImporter extends Importer {
             growthStrategy: null,
             deltaTime: deltaTime
         });
+        
+        // Display the surface
+        if (this.dimension == 3) {
 
-        // @todo display the surface
+            this._onUpdateBoundaryGeo(new THREE.BufferGeometry); // no boundary shown when loading in a binary file - @todo
+            
+            // build up geometry
+            const vertices = [];
+            const indices = [];
+            for (const tri of triangles) {
+                indices.push(tri[0], tri[1], tri[2]);
+            }
+            for (const vert of particles) {
+                vertices.push(vert.position[0], vert.position[1], vert.position[2]);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            this._onUpdateGeo(geo);
+        } else {
+
+            const svgCtx = this._svgCtx;
+            const svgCanvas = this._svgCanvas;
+
+            svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
+                
+            // @todo - no boundary shown
+            
+            svgCtx.fillStyle = '#fff';
+            svgCtx.strokeStyle = '#000';
+            let path = 'M ';
+            let current = 0;
+            do {
+                let point = particles[current];
+                path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
+                current = point.next;
+                if (current == 0) path += 'Z';
+                else path += 'L ';
+            } while (current != 0);
+            svgCtx.fill(new Path2D(path));
+            svgCtx.stroke(new Path2D(path));
+
+            this.exportSVG = () => {
+                const sz = 8192;
+                let svg = `
+                    <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
+                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
+                `;
+                const points = [];
+                let current = 0;
+                do {
+                    points.push(surface.particles[current].position);
+                    current = surface.particles[current].next;
+                } while (current != 0);
+                svg += `<path
+                            d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
+                            fill='black'
+                        />`
+                svg += `</svg>`;
+                return svg;
+            };
+
+        }
 
         return true;
     }
