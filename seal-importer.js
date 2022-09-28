@@ -76,7 +76,8 @@ class Importer {
                                                       Repulsion Anisotropy: ${stats.repulsionAnisotropy ?? 'N/A'}<br/>
                                                       Boundary type: ${stats.boundaryType ?? 'none'}<br/>
                                                       Growth strategy: ${stats.growthStrategy ?? 'unknown'}<br/>
-                                                      Delta time: ${stats.deltaTime ?? 'N/A'}`;
+                                                      Delta time: ${stats.deltaTime ?? 'N/A'}<br/>
+                                                      Volume: ${stats.volume ?? 'unknown'}`;
     }
 
 };
@@ -120,7 +121,8 @@ class JsonImporter extends Importer {
             repulsionAnisotropy: surface.repulsionAnisotropy ?? null,
             boundaryType: surface.boundary?.type ?? null,
             growthStrategy: surface.growthStrategy ?? null,
-            deltaTime: surface.dt ?? null
+            deltaTime: surface.dt ?? null,
+            volume: surface.volume ?? null
         });
 
         if (this.dimension == 3) {
@@ -279,13 +281,19 @@ class BinaryImporter extends Importer {
 
     _readNext () {
         if (this.#idx >= this.data.length) return false;
+        
+        let fileVersion = 0;
 
         // read header
         let header = '' + this.#char();
         header += this.#char();
         header += this.#char();
-        if (header !== 'SRF') {
-            throw `Invalid header '${header}' != 'SRF' (at location ${this.#idx-3}), file is not a valid binary surface!`;
+        if (header == 'SRF') { // old files start with SRF and do not contain the file version
+            fileVersion = 0;
+        } else if (header == 'SEL') { // new files start with SEL and contain the file version as a single byte
+            fileVersion = this.#byte();
+        } else {
+            throw `Invalid header '${header}' != 'SEL' (and != 'SRF') at location ${this.#idx-3}, file is not a valid binary surface!`;
         }
 
         // read metadata
@@ -302,6 +310,7 @@ class BinaryImporter extends Importer {
         const repulsionAnisotropy = this.#vec(this.dimension);
         const deltaTime = this.#float();
         const runtime = this.#int();
+        const volume = fileVersion < 1 ? null : this.#float();
         const numParticles = this.#int();
 
         // Read particle positions
@@ -344,7 +353,8 @@ class BinaryImporter extends Importer {
             repulsionAnisotropy: repulsionAnisotropy,
             boundaryType: null,
             growthStrategy: null,
-            deltaTime: deltaTime
+            deltaTime: deltaTime,
+            volume: volume
         });
         
         // Display the surface
