@@ -82,6 +82,7 @@ class Importer {
 
 };
 
+// @todo: json importer doesn't support trees yet
 class JsonImporter extends Importer {
     #idx = 0;
 
@@ -278,6 +279,15 @@ class BinaryImporter extends Importer {
             str += c;
         }
     }
+    
+    #intArray (bits = 32) {
+        let arr = [];
+        const sz = this.#int(32);
+        for (let i = 0; i < sz; ++i) {
+            arr.push(this.#int(bits));
+        }
+        return arr;
+    }
 
     _readNext () {
         if (this.#idx >= this.data.length) return false;
@@ -299,6 +309,7 @@ class BinaryImporter extends Importer {
         // read metadata
         this.dimension = this.#byte();
         this._onSetDimension(this.dimension);
+        const type = fileVersion < 2 ? ('s' + this.dimension) : this.#string();
         this._setDate(getTimestamp(this.#int(64)));
         const machine = this.#string();
         const seed = this.#int();
@@ -318,7 +329,13 @@ class BinaryImporter extends Importer {
         for (let i = 0; i < numParticles; ++i) {
             const particle = { position: this.#vec(this.dimension) };
             if (this.dimension == 2) {
-                particle.next = this.#int();
+                if (type.startsWith('t')) {
+                    // tree: several neighbours
+                    particle.neighbours = this.#intArray();
+                } else {
+                    // line: single neighbour
+                    particle.next = this.#int();
+                }
             }
             particles.push(particle);
         }
@@ -387,38 +404,56 @@ class BinaryImporter extends Importer {
             
             svgCtx.fillStyle = '#fff';
             svgCtx.strokeStyle = '#000';
-            let path = 'M ';
-            let current = 0;
-            do {
-                let point = particles[current];
-                path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
-                current = point.next;
-                if (current == 0) path += 'Z';
-                else path += 'L ';
-            } while (current != 0);
-            svgCtx.fill(new Path2D(path));
-            svgCtx.stroke(new Path2D(path));
-
-            this.exportSVG = () => {
-                const sz = 8192;
-                let svg = `
-                    <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
-                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
-                `;
-                const points = [];
+            let path = '';
+            if (type.startsWith('t')) {
+                // tree (graph)
+                for (let i = 0; i < particles.length; ++i) {
+                    const from = parseInt((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height);
+                    // svgCtx.beginPath();
+                    // svgCtx.ellipse((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width, (particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height, 0.001 * svgCanvas.width, 0.001 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                    // svgCtx.fill();
+                    for (let j = 0; j < particles[i].neighbours.length; ++j) {
+                        const to = parseInt((particles[j].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((particles[j].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height);
+                        path += `M ${from} L ${to} Z `;
+                    }
+                }
+            } else {
+                // 'surface' (i.e. continuous line)
                 let current = 0;
+                path = 'M ';
                 do {
-                    points.push(surface.particles[current].position);
-                    current = surface.particles[current].next;
+                    let point = particles[current];
+                    path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
+                    current = point.next;
+                    if (current == 0) path += 'Z';
+                    else path += 'L ';
                 } while (current != 0);
-                svg += `<path
-                            d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
-                            fill='black'
-                        />`
-                svg += `</svg>`;
-                return svg;
-            };
-
+                // (no fill for trees)
+                svgCtx.fill(new Path2D(path));
+            }
+            svgCtx.stroke(new Path2D(path));
+            
+            // @todo: reimplement saving svgs with the inclusion of trees
+            // this.exportSVG = () => {
+            //     const sz = 8192;
+            //     let svg = `
+            //         <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
+            //             <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
+            //     `;
+            //     const points = [];
+            //     let current = 0;
+            //     do {
+            //         points.push(surface.particles[current].position);
+            //         current = surface.particles[current].next;
+            //     } while (current != 0);
+            //     svg += `<path
+            //                 d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
+            //                 fill='black'
+            //             />`
+            //     svg += `</svg>`;
+            //     return svg;
+            // };
+            
         }
 
         return true;
