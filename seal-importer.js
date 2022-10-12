@@ -434,25 +434,25 @@ class BinaryImporter extends Importer {
             svgCtx.stroke(new Path2D(path));
             
             // @todo: reimplement saving svgs with the inclusion of trees
-            // this.exportSVG = () => {
-            //     const sz = 8192;
-            //     let svg = `
-            //         <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
-            //             <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
-            //     `;
-            //     const points = [];
-            //     let current = 0;
-            //     do {
-            //         points.push(surface.particles[current].position);
-            //         current = surface.particles[current].next;
-            //     } while (current != 0);
-            //     svg += `<path
-            //                 d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
-            //                 fill='black'
-            //             />`
-            //     svg += `</svg>`;
-            //     return svg;
-            // };
+            this.exportSVG = () => {
+                const sz = 8192;
+                let svg = `
+                    <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
+                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
+                `;
+                const points = [];
+                let current = 0;
+                do {
+                    points.push(particles[current].position);
+                    current = particles[current].next;
+                } while (current != 0);
+                svg += `<path
+                            d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
+                            fill='black'
+                        />`
+                svg += `</svg>`;
+                return svg;
+            };
             
         }
 

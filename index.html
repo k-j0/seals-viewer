@@ -175,7 +175,7 @@
                     render();
                 }
 
-                const importer = binary ? new BinaryImporter : new JsonImporter;
+                importer = binary ? new BinaryImporter : new JsonImporter;
                 importer.import(reader.result, dimension => {
                     svgCanvas.style.display = dimension == 3 ? 'none' : null;
                     renderer.domElement.style.display = dimension == 2 ? 'none' : null;
@@ -196,7 +196,7 @@
         
         // controls
         document.getElementById('load').addEventListener('click', () => {
-            input.click(); 
+            input.click();
         });
         document.getElementById('replay').addEventListener('click', () => {
             if (importer !== null) {
