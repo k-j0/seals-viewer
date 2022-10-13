@@ -402,25 +402,28 @@ class BinaryImporter extends Importer {
                 
             // @todo - no boundary shown
             
-            svgCtx.fillStyle = '#fff';
-            svgCtx.strokeStyle = '#000';
-            let path = '';
             if (type.startsWith('t')) {
                 // tree (graph)
+                svgCtx.fillStyle = '#888';
+                svgCtx.strokeStyle = '#000';
+                for (let i = 0; i < particles.length; ++i) {
+                    svgCtx.beginPath();
+                    svgCtx.ellipse((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width, (particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height, 0.003 * svgCanvas.width, 0.003 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                    svgCtx.fill();
+                }
                 for (let i = 0; i < particles.length; ++i) {
                     const from = parseInt((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height);
-                    // svgCtx.beginPath();
-                    // svgCtx.ellipse((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width, (particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height, 0.001 * svgCanvas.width, 0.001 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
-                    // svgCtx.fill();
-                    for (let j = 0; j < particles[i].neighbours.length; ++j) {
+                    for (let j of particles[i].neighbours) {
                         const to = parseInt((particles[j].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((particles[j].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height);
-                        path += `M ${from} L ${to} Z `;
+                        svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
                     }
                 }
             } else {
                 // 'surface' (i.e. continuous line)
                 let current = 0;
-                path = 'M ';
+                let path = 'M ';
+                svgCtx.fillStyle = '#fff';
+                svgCtx.strokeStyle = '#000';
                 do {
                     let point = particles[current];
                     path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
@@ -430,8 +433,8 @@ class BinaryImporter extends Importer {
                 } while (current != 0);
                 // (no fill for trees)
                 svgCtx.fill(new Path2D(path));
+                svgCtx.stroke(new Path2D(path));
             }
-            svgCtx.stroke(new Path2D(path));
             
             // @todo: reimplement saving svgs with the inclusion of trees
             this.exportSVG = () => {
