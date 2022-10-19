@@ -438,21 +438,58 @@ class BinaryImporter extends Importer {
             
             // @todo: reimplement saving svgs with the inclusion of trees
             this.exportSVG = () => {
-                const sz = 8192;
+                const sz = 1024;
                 let svg = `
                     <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
                         <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='lightblue' />
                 `;
-                const points = [];
-                let current = 0;
-                do {
-                    points.push(particles[current].position);
-                    current = particles[current].next;
-                } while (current != 0);
-                svg += `<path
-                            d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
-                            fill='white'
-                        />`
+                if (type.startsWith('t')) {
+                    // tree
+                    const showSkeleton = true;
+                    for (let i = 0; i < particles.length; ++i) {
+                        const from = ((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                        for (let j of particles[i].neighbours) {
+                            const to = ((particles[j].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[j].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                            svg += `<path
+                                        d='M ${from} L ${to}'
+                                        stroke='white'
+                                        fill='none'
+                                        stroke-width='5'
+                                        stroke-linejoin='round'
+                                        stroke-linecap='round'
+                                    />`;
+                        }
+                    }
+                    if (showSkeleton) {
+                        for (let i = 0; i < particles.length; ++i) {
+                            const from = ((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                            for (let j of particles[i].neighbours) {
+                                const to = ((particles[j].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[j].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                                svg += `<path
+                                            d='M ${from} L ${to}'
+                                            stroke='black'
+                                            fill='none'
+                                            stroke-width='0.5'
+                                        />`;
+                            }
+                        }
+                        for (let i = 0; i < particles.length; ++i) {
+                            svg += `<ellipse cx="${((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz)}" cy="${((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz)}" rx="1" ry="1" fill="black" stroke="none" />`;
+                        }
+                    }
+                } else {
+                    // surface
+                    const points = [];
+                    let current = 0;
+                    do {
+                        points.push(particles[current].position);
+                        current = particles[current].next;
+                    } while (current != 0);
+                    svg += `<path
+                                d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
+                                fill='white'
+                            />`
+                }
                 svg += `</svg>`;
                 return svg;
             };
