@@ -438,7 +438,7 @@ class BinaryImporter extends Importer {
                 const sz = 8192;
                 let svg = `
                     <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
-                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
+                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='lightblue' />
                 `;
                 const points = [];
                 let current = 0;
@@ -448,7 +448,7 @@ class BinaryImporter extends Importer {
                 } while (current != 0);
                 svg += `<path
                             d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
-                            fill='black'
+                            fill='white'
                         />`
                 svg += `</svg>`;
                 return svg;
