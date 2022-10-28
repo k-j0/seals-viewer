@@ -1,5 +1,6 @@
 
 import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
+import { mergeBufferGeometries } from './BufferGeometryUtils.js';
 
 
 function forceImpl (name) {
@@ -378,20 +379,26 @@ class BinaryImporter extends Importer {
             this._onUpdateBoundaryGeo(new THREE.BufferGeometry); // no boundary shown when loading in a binary file - @todo
             
             // build up geometry
-            const geo = new THREE.BufferGeometry();
-            
             if (type.startsWith('t')) { // tree
                 
-                const vertices = [];
+                const geos = [];
+                const radius = attractionMagnitude * repulsionMagnitudeFactor * 0.25; // 25% of the typical distance between non-neighbour particles, i.e. 50% will be air and 50% volume
+                const atov = arr => new THREE.Vector3(arr[0], arr[1], arr[2]);
                 for (let i = 0; i < particles.length; ++i) {
-                    const from = particles[i].position;
+                    const from = atov(particles[i].position);
+                    // insert node
+                    const sphere = new THREE.SphereGeometry(radius, 6, 3);
+                    sphere.translate(from.x, from.y, from.z);
+                    geos.push(sphere);
                     for (let j of particles[i].neighbours) {
-                        const to = particles[j].position;
-                        vertices.push(from, to);
+                        const to = atov(particles[j].position);
+                        // insert from-to line
+                        geos.push(new THREE.TubeGeometry(new THREE.LineCurve3(from, to), 1, radius, 6, false));
                     }
                 }
-                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices.flat()), 3));
-                this._onUpdateGeo(geo, 'lines');
+                const geo = mergeBufferGeometries(geos);
+                geo.computeVertexNormals();
+                this._onUpdateGeo(geo);
                 
             } else { // surface
                 const vertices = [];
@@ -402,6 +409,7 @@ class BinaryImporter extends Importer {
                 for (const vert of particles) {
                     vertices.push(vert.position[0], vert.position[1], vert.position[2]);
                 }
+                const geo = new THREE.BufferGeometry();
                 geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
                 geo.setIndex(indices);
                 geo.computeVertexNormals();
