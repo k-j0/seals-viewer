@@ -328,22 +328,20 @@ class BinaryImporter extends Importer {
         const particles = [];
         for (let i = 0; i < numParticles; ++i) {
             const particle = { position: this.#vec(this.dimension) };
-            if (this.dimension == 2) {
-                if (type.startsWith('t')) {
-                    // tree: several neighbours
-                    particle.neighbours = this.#intArray();
-                } else {
-                    // line: single neighbour
-                    particle.next = this.#int();
-                }
+            if (type.startsWith('t')) {
+                // trees (n-dim): multiple neighbours per particle
+                particle.neighbours = this.#intArray();
+            } else if (this.dimension == 2) {
+                // line: single neighbour
+                particle.next = this.#int();
             }
             particles.push(particle);
         }
 
-        // Read triangle indices
+        // Read triangle indices (only 3D non-trees)
         let numTriangles = null;
         const triangles = [];
-        if (this.dimension == 3) {
+        if (this.dimension == 3 && !type.startsWith('t')) {
             numTriangles = this.#int();
             for (let i = 0; i < numTriangles; ++i) {
                 triangles.push(this.#ivec(3));
@@ -380,19 +378,35 @@ class BinaryImporter extends Importer {
             this._onUpdateBoundaryGeo(new THREE.BufferGeometry); // no boundary shown when loading in a binary file - @todo
             
             // build up geometry
-            const vertices = [];
-            const indices = [];
-            for (const tri of triangles) {
-                indices.push(tri[0], tri[1], tri[2]);
-            }
-            for (const vert of particles) {
-                vertices.push(vert.position[0], vert.position[1], vert.position[2]);
-            }
             const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
-            geo.setIndex(indices);
-            geo.computeVertexNormals();
-            this._onUpdateGeo(geo);
+            
+            if (type.startsWith('t')) { // tree
+                
+                const vertices = [];
+                for (let i = 0; i < particles.length; ++i) {
+                    const from = particles[i].position;
+                    for (let j of particles[i].neighbours) {
+                        const to = particles[j].position;
+                        vertices.push(from, to);
+                    }
+                }
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices.flat()), 3));
+                this._onUpdateGeo(geo, 'lines');
+                
+            } else { // surface
+                const vertices = [];
+                const indices = [];
+                for (const tri of triangles) {
+                    indices.push(tri[0], tri[1], tri[2]);
+                }
+                for (const vert of particles) {
+                    vertices.push(vert.position[0], vert.position[1], vert.position[2]);
+                }
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                this._onUpdateGeo(geo);
+            }
         } else {
 
             const svgCtx = this._svgCtx;
@@ -436,7 +450,6 @@ class BinaryImporter extends Importer {
                 svgCtx.stroke(new Path2D(path));
             }
             
-            // @todo: reimplement saving svgs with the inclusion of trees
             this.exportSVG = () => {
                 const sz = 1024;
                 let svg = `

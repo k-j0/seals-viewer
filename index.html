@@ -115,6 +115,8 @@
         group.add(mesh);
         const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
         group.add(mesh2);
+        const meshLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 'white' }));
+        group.add(meshLines);
         const boundary = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
         group.add(boundary);
         const boundary2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
@@ -181,8 +183,16 @@
                     renderer.domElement.style.display = dimension == 2 ? 'none' : null;
                 }, boundaryGeo => {
                     boundary.geometry = boundary2.geometry = boundaryGeo;
-                }, geo => {
-                    mesh.geometry = mesh2.geometry = geo;
+                }, (geo, primitive = 'triangles') => {
+                    if (primitive == 'triangles') {
+                        mesh.geometry = mesh2.geometry = geo;
+                        meshLines.geometry = new THREE.BufferGeometry();
+                    } else if (primitive == 'lines') {
+                        mesh.geometry = mesh2.geometry = new THREE.BufferGeometry();
+                        meshLines.geometry = geo;
+                    } else {
+                        throw `Illegal primitive type: ${primitive}`;
+                    }
                 }, svgCtx, svgCanvas);
 
             };
