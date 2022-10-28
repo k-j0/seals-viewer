@@ -382,7 +382,7 @@ class BinaryImporter extends Importer {
             if (type.startsWith('t')) { // tree
                 
                 const geos = [];
-                const radius = attractionMagnitude * repulsionMagnitudeFactor * 0.25; // 25% of the typical distance between non-neighbour particles, i.e. 50% will be air and 50% volume
+                const radius = attractionMagnitude * repulsionMagnitudeFactor * 0.4; // 40% of the typical distance between non-neighbour particles, i.e. 20% will be air and 80% volume
                 const atov = arr => new THREE.Vector3(arr[0], arr[1], arr[2]);
                 for (let i = 0; i < particles.length; ++i) {
                     const from = atov(particles[i].position);
