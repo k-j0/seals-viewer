@@ -1,5 +1,5 @@
 
-import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
+import * as THREE from './libs/three.js';
 
 
 function aboveZero (x) { return x > 0 ? 1 : 0; }

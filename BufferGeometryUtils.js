@@ -9,7 +9,7 @@ import {
 	TriangleStripDrawMode,
 	TrianglesDrawMode,
 	Vector3,
-} from 'https://cdn.skypack.dev/three@0.133.1';
+} from './libs/three.js';
 
 function computeTangents() {
 

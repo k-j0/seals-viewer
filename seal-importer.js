@@ -1,6 +1,9 @@
 
-import * as THREE from 'https://cdn.skypack.dev/three@0.133.1';
+import * as THREE from './libs/three.js';
 import { mergeBufferGeometries } from './BufferGeometryUtils.js';
+import { ADDITION, Brush, Evaluator } from './libs/three-bvh-csg.js';
+
+console.log(ADDITION, Brush, Evaluator);
 
 
 function forceImpl (name) {
