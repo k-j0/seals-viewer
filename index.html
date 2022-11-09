@@ -90,6 +90,7 @@
         <button id='play-pause'>⏯</button>
         <button id="sphere">◎</button>
         <button id='shading'>✦</button>
+        <button id='improve'>🛠️</button>
         <button id='analysis'>🛈</button>
         <button id='save'>⇓</button>
     </div>
@@ -115,6 +116,8 @@
         group.add(mesh);
         const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
         group.add(mesh2);
+        const lineMesh = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 'white' }));
+        group.add(lineMesh);
         const boundary = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
         group.add(boundary);
         const boundary2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', wireframe: true }));
@@ -181,8 +184,14 @@
                     renderer.domElement.style.display = dimension == 2 ? 'none' : null;
                 }, boundaryGeo => {
                     boundary.geometry = boundary2.geometry = boundaryGeo;
-                }, (geo) => {
-                    mesh.geometry = mesh2.geometry = geo;
+                }, (geo, primitive = 'tris') => {
+                    if (primitive == 'lines') {
+                        lineMesh.geometry = geo;
+                        mesh.geometry = mesh2.geometry = new THREE.BufferGeometry();
+                    } else {
+                        lineMesh.geometry = new THREE.BufferGeometry();
+                        mesh.geometry = mesh2.geometry = geo;
+                    }
                 }, svgCtx, svgCanvas);
 
             };
@@ -217,6 +226,11 @@
             mesh2.material.flatShading = !mesh2.material.flatShading;
             mesh2.material.needsUpdate = true;
             if (paused) render();
+        });
+        document.getElementById('improve').addEventListener('click', () => {
+            if ('refine' in importer) {
+                importer.refine();
+            }
         });
         document.getElementById('analysis').addEventListener('click', () => {
 

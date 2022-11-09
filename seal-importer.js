@@ -1,9 +1,6 @@
 
 import * as THREE from './libs/three.js';
 import { mergeBufferGeometries } from './BufferGeometryUtils.js';
-import { ADDITION, Brush, Evaluator } from './libs/three-bvh-csg.js';
-
-console.log(ADDITION, Brush, Evaluator);
 
 
 function forceImpl (name) {
@@ -296,6 +293,8 @@ class BinaryImporter extends Importer {
     _readNext () {
         if (this.#idx >= this.data.length) return false;
         
+        if ('refine' in this) delete this.refine;
+        
         let fileVersion = 0;
 
         // read header
@@ -384,33 +383,51 @@ class BinaryImporter extends Importer {
             // build up geometry
             if (type.startsWith('t')) { // tree
                 
-                const geos = [];
-                const radius = attractionMagnitude * repulsionMagnitudeFactor * 0.4; // 40% of the typical distance between non-neighbour particles, i.e. 20% will be air and 80% volume
-                const segments = 12;
-                const atov = arr => new THREE.Vector3(arr[0], arr[1], arr[2]);
+                // Simple display with lines
+                const positions = [];
                 for (let i = 0; i < particles.length; ++i) {
-                    const from = atov(particles[i].position);
+                    const from = particles[i].position;
                     for (let j of particles[i].neighbours) {
-                        const to = atov(particles[j].position);
-                        // insert from-to line
-                        const cylinder = new THREE.CylinderGeometry(radius, radius, from.distanceTo(to), segments, 1, true);
-                        const centre = from.clone().add(to).multiplyScalar(0.5);
-                        cylinder.rotateX(Math.PI * 0.5);
-                        cylinder.lookAt(to.clone().sub(from));
-                        cylinder.translate(centre.x, centre.y, centre.z);
-                        geos.push(cylinder);
-                        // insert end caps
-                        const sphere = new THREE.SphereGeometry(radius, segments, segments/2);
-                        sphere.lookAt(to.clone().sub(from));
-                        sphere.translate(from.x, from.y, from.z);
-                        geos.push(sphere);
-                        const toTo = to.clone().sub(from);
-                        geos.push(sphere.clone().translate(toTo.x, toTo.y, toTo.z));
+                        const to = particles[j].position;
+                        positions.push(from[0], from[1], from[2], to[0], to[1], to[2]);
                     }
                 }
-                const geo = mergeBufferGeometries(geos);
-                geo.computeVertexNormals();
-                this._onUpdateGeo(geo);
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+                this._onUpdateGeo(geo, 'lines');
+                
+                // More complex geometry display with thickness
+                this.refine = () => {
+                    
+                    const geos = [];
+                    const radius = attractionMagnitude * repulsionMagnitudeFactor * 0.4; // 40% of the typical distance between non-neighbour particles, i.e. 20% will be air and 80% volume
+                    const segments = 12;
+                    const atov = arr => new THREE.Vector3(arr[0], arr[1], arr[2]);
+                    for (let i = 0; i < particles.length; ++i) {
+                        const from = atov(particles[i].position);
+                        for (let j of particles[i].neighbours) {
+                            const to = atov(particles[j].position);
+                            // insert from-to line
+                            const cylinder = new THREE.CylinderGeometry(radius, radius, from.distanceTo(to), segments, 1, true);
+                            const centre = from.clone().add(to).multiplyScalar(0.5);
+                            cylinder.rotateX(Math.PI * 0.5);
+                            cylinder.lookAt(to.clone().sub(from));
+                            cylinder.translate(centre.x, centre.y, centre.z);
+                            geos.push(cylinder);
+                            // insert end caps
+                            const sphere = new THREE.SphereGeometry(radius, segments, segments/2);
+                            sphere.lookAt(to.clone().sub(from));
+                            sphere.translate(from.x, from.y, from.z);
+                            geos.push(sphere);
+                            const toTo = to.clone().sub(from);
+                            geos.push(sphere.clone().translate(toTo.x, toTo.y, toTo.z));
+                        }
+                    }
+                    const geo = mergeBufferGeometries(geos);
+                    geo.computeVertexNormals();
+                    this._onUpdateGeo(geo);
+                    
+                };
                 
             } else { // surface
                 const vertices = [];
