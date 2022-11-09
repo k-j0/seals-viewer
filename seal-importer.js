@@ -383,17 +383,26 @@ class BinaryImporter extends Importer {
                 
                 const geos = [];
                 const radius = attractionMagnitude * repulsionMagnitudeFactor * 0.4; // 40% of the typical distance between non-neighbour particles, i.e. 20% will be air and 80% volume
+                const segments = 12;
                 const atov = arr => new THREE.Vector3(arr[0], arr[1], arr[2]);
                 for (let i = 0; i < particles.length; ++i) {
                     const from = atov(particles[i].position);
-                    // insert node
-                    const sphere = new THREE.SphereGeometry(radius, 6, 3);
-                    sphere.translate(from.x, from.y, from.z);
-                    geos.push(sphere);
                     for (let j of particles[i].neighbours) {
                         const to = atov(particles[j].position);
                         // insert from-to line
-                        geos.push(new THREE.TubeGeometry(new THREE.LineCurve3(from, to), 1, radius, 6, false));
+                        const cylinder = new THREE.CylinderGeometry(radius, radius, from.distanceTo(to), segments, 1, true);
+                        const centre = from.clone().add(to).multiplyScalar(0.5);
+                        cylinder.rotateX(Math.PI * 0.5);
+                        cylinder.lookAt(to.clone().sub(from));
+                        cylinder.translate(centre.x, centre.y, centre.z);
+                        geos.push(cylinder);
+                        // insert end caps
+                        const sphere = new THREE.SphereGeometry(radius, segments, segments/2);
+                        sphere.lookAt(to.clone().sub(from));
+                        sphere.translate(from.x, from.y, from.z);
+                        geos.push(sphere);
+                        const toTo = to.clone().sub(from);
+                        geos.push(sphere.clone().translate(toTo.x, toTo.y, toTo.z));
                     }
                 }
                 const geo = mergeBufferGeometries(geos);
