@@ -340,6 +340,16 @@ class BinaryImporter extends Importer {
             }
             particles.push(particle);
         }
+        
+        // Read 'young' node indices (only trees, after file version 3)
+        let youngIndices = [];
+        if (fileVersion >= 3 && type.startsWith('t')) {
+            const numYIdx = this.#int();
+            for (let i = 0; i < numYIdx; ++i) {
+                const youngIndex = this.#int();
+                youngIndices.push(youngIndex);
+            }
+        }
 
         // Read triangle indices (only 3D non-trees)
         let numTriangles = null;
@@ -453,19 +463,22 @@ class BinaryImporter extends Importer {
                 
             // @todo - no boundary shown
             
+            const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
+            
             if (type.startsWith('t')) {
                 // tree (graph)
-                svgCtx.fillStyle = '#888';
                 svgCtx.strokeStyle = '#000';
+                const youngs = new Set(youngIndices);
                 for (let i = 0; i < particles.length; ++i) {
                     svgCtx.beginPath();
-                    svgCtx.ellipse((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width, (particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height, 0.003 * svgCanvas.width, 0.003 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                    svgCtx.fillStyle = youngs.has(i) ? '#fff' : '#888';
+                    svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
                     svgCtx.fill();
                 }
                 for (let i = 0; i < particles.length; ++i) {
-                    const from = parseInt((particles[i].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((particles[i].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height);
+                    const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
                     for (let j of particles[i].neighbours) {
-                        const to = parseInt((particles[j].position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((particles[j].position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height);
+                        const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
                         svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
                     }
                 }
