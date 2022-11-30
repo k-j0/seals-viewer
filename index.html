@@ -233,23 +233,24 @@
             }
         });
         document.getElementById('analysis').addEventListener('click', () => {
-
-            // @todo!
-            throw `Unimplemented with new importer logic, this needs to be rewritten!`;
-
-            if (currentSurface === null) return;
-            const div = document.createElement('div');
-            div.className = 'analysis';
             
-            // display analysis results in div
-            if (dimension == 3) {
-                Analysis.sharedVertices(JSON.parse(JSON.stringify(currentSurface)), div);
-            } else if (dimension == 2) {
-                Analysis.fractalDimension2D(currentSurface, div, svgCtx, svgCanvas);
+            if ('analyse' in importer) {
+                importer.analyse();
             }
+
+            // if (currentSurface === null) return;
+            // const div = document.createElement('div');
+            // div.className = 'analysis';
             
-            div.addEventListener('click', () => document.body.removeChild(div));
-            document.body.append(div);
+            // // display analysis results in div
+            // if (dimension == 3) {
+            //     Analysis.sharedVertices(JSON.parse(JSON.stringify(currentSurface)), div);
+            // } else if (dimension == 2) {
+            //     Analysis.fractalDimension2D(currentSurface, div, svgCtx, svgCanvas);
+            // }
+            
+            // div.addEventListener('click', () => document.body.removeChild(div));
+            // document.body.append(div);
         });
         document.getElementById('save').addEventListener('click', () => {
             if (importer === null) {

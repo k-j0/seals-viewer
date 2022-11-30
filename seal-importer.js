@@ -3,6 +3,9 @@ import * as THREE from './libs/three.js';
 import { mergeBufferGeometries } from './BufferGeometryUtils.js';
 
 
+const QUICK_MODE = true;
+
+
 function forceImpl (name) {
     throw `Importer child class needs to override ${name}!`;
 }
@@ -46,7 +49,7 @@ class Importer {
         this._rewind();
         while (true) {
             if (!this._readNext()) return;
-            await new Promise(resolve => setTimeout(resolve, 5));
+            if (!QUICK_MODE) await new Promise(resolve => setTimeout(resolve, 5));
             if (playingIdx !== this.#playingIdx) {
                 return;
             }
@@ -366,6 +369,10 @@ class BinaryImporter extends Importer {
             throw `Invalid footer, binary data should end each surface with a 0x00!`;
         }
         
+        if (QUICK_MODE && this.#idx < this.data.length) {
+            return true;
+        }
+        
         // update statistics
         this._setStats({
             seed: seed,
@@ -460,6 +467,7 @@ class BinaryImporter extends Importer {
             const svgCanvas = this._svgCanvas;
 
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
+            svgCtx.lineCap = 'round';
                 
             // @todo - no boundary shown
             
@@ -482,6 +490,89 @@ class BinaryImporter extends Importer {
                         svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
                     }
                 }
+                
+                this.analyse = () => {
+                    
+                    // Horton-Strahler branch complexities
+                    for (let i = 0; i < particles.length; ++i) {
+                        particles[i].hsComplexity = -1;
+                    }
+                    const remainingIndices = new Set(Array(particles.length).keys());
+                    const leafNodesFrom = (i, from = -1) => {
+                        let nodes = [i];
+                        for (const j of particles[i].neighbours) {
+                            if (!remainingIndices.has(j)) continue;
+                            if (j == from) continue;
+                            let numNeighbours = 0;
+                            for (const k of particles[j].neighbours) {
+                                if (!remainingIndices.has(k)) continue;
+                                ++numNeighbours;
+                            }
+                            if (numNeighbours > 2) continue; // not part of the same leaf anymore if it's a branching point
+                            nodes = nodes.concat(leafNodesFrom(j, i));
+                        }
+                        return nodes;
+                    };
+                    while (remainingIndices.size > 0) {
+                        console.group('Remaining: ', remainingIndices.size);
+                        // remove all leaf branches
+                        const markedForDeletion = new Set;
+                        for (const i of remainingIndices) {
+                            ++particles[i].hsComplexity;
+                            
+                            let numNeighbours = 0;
+                            for (const j of particles[i].neighbours) {
+                                if (remainingIndices.has(j)) {
+                                    ++numNeighbours;
+                                }
+                            }
+                            if (numNeighbours <= 1) {
+                                // tip of leaf node, mark for deletion up until next branching point
+                                const leafNodes = leafNodesFrom(i);
+                                for (const j of leafNodes) {
+                                    markedForDeletion.add(j);
+                                }
+                            }
+                        }
+                        for (const i of markedForDeletion) {
+                            remainingIndices.delete(i);
+                        }
+                        console.log('Removed', markedForDeletion.size);
+                        console.groupEnd();
+                        if (markedForDeletion.length <= 0) {
+                            console.error('Step of H-S complexity computation ended up with no nodes to delete for the next level, but ' + remainingIndices.size + ' indices remain...!');
+                            break;
+                        }
+                    }
+                    
+                    // Display H-S BCs
+                    const colours = [
+                        '#0099ff',
+                        '#00ff73',
+                        '#ffee00',
+                        '#ff7b00',
+                        '#ff0000',
+                        '#ffffff'
+                    ];
+                    colours.default = 'magenta';
+                    colours[-1] = 'white';
+                    svgCtx.fillStyle = 'black';
+                    svgCtx.fillRect(0, 0, svgCanvas.width, svgCanvas.height);
+                    for (let i = 0; i < particles.length; ++i) {
+                        const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
+                        for (let j of particles[i].neighbours) {
+                            
+                            // Horton-Strahler complexity of the branch as the lowest among the two nodes
+                            const hsComplexity = Math.min(particles[i].hsComplexity, particles[j].hsComplexity);
+                            
+                            const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
+                            svgCtx.strokeStyle = colours[hsComplexity >= colours.length ? 'default' : hsComplexity];
+                            svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                        }
+                    }
+                    
+                };
+                
             } else {
                 // 'surface' (i.e. continuous line)
                 let current = 0;
