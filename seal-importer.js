@@ -475,14 +475,27 @@ class BinaryImporter extends Importer {
             
             if (type.startsWith('t')) {
                 // tree (graph)
-                svgCtx.strokeStyle = '#000';
+                
+                svgCtx.strokeStyle = '#aaa';
+                svgCtx.lineWidth = 0.004 * 2 * svgCanvas.width;
+                for (let i = 0; i < particles.length; ++i) {
+                    const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
+                    for (let j of particles[i].neighbours) {
+                        const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
+                        svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                    }
+                }
+                svgCtx.strokeStyle = '#333';
+                svgCtx.lineWidth = 1;
                 const youngs = new Set(youngIndices);
                 for (let i = 0; i < particles.length; ++i) {
                     svgCtx.beginPath();
-                    svgCtx.fillStyle = youngs.has(i) ? '#fff' : '#888';
+                    svgCtx.fillStyle = youngs.has(i) ? '#fff' : '#666';
                     svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
                     svgCtx.fill();
+                    svgCtx.stroke();
                 }
+                svgCtx.strokeStyle = '#fff';
                 for (let i = 0; i < particles.length; ++i) {
                     const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
                     for (let j of particles[i].neighbours) {
@@ -556,8 +569,28 @@ class BinaryImporter extends Importer {
                     ];
                     colours.default = 'magenta';
                     colours[-1] = 'white';
-                    svgCtx.fillStyle = 'black';
+                    svgCtx.fillStyle = '#001';
                     svgCtx.fillRect(0, 0, svgCanvas.width, svgCanvas.height);
+                    svgCtx.strokeStyle = '#444';
+                    svgCtx.lineWidth = 0.004 * 2 * svgCanvas.width;
+                    for (let i = 0; i < particles.length; ++i) {
+                        const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
+                        for (let j of particles[i].neighbours) {
+                            const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
+                            svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                        }
+                    }
+                    svgCtx.strokeStyle = '#333';
+                    svgCtx.lineWidth = 1;
+                    const youngs = new Set(youngIndices);
+                    for (let i = 0; i < particles.length; ++i) {
+                        svgCtx.beginPath();
+                        svgCtx.fillStyle = youngs.has(i) ? '#bbb' : '#999';
+                        svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                        svgCtx.fill();
+                        svgCtx.stroke();
+                    }
+                    svgCtx.lineWidth = 1.5;
                     for (let i = 0; i < particles.length; ++i) {
                         const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
                         for (let j of particles[i].neighbours) {
