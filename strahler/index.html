@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        canvas {
+            position: fixed;
+            left: 0;
+            top: 0;
+        }
+        input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 500;
+        }
+    </style>
+</head>
+<body>
+    <script type="module">
+        
+        const getNum = (id) => document.getElementById(id).value;
+        
+        // Initial setup
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = Math.min(window.innerHeight, window.innerWidth);
+        document.body.append(canvas);
+        const ctx = canvas.getContext('2d');
+        const img = new Image;
+        
+        
+        // Render function
+        let x = 0;
+        let y = 0;
+        let zoom = 1;
+        let fromIdx = null;
+        let vertices = [];
+        const xToCanv = (localX) => (localX * zoom - x) * canvas.width;
+        const yToCanv = (localY) => (localY * zoom - y) * canvas.height;
+        const refresh = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, -x * canvas.width, -y * canvas.height, canvas.width * zoom, canvas.height * zoom);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 1;
+            for (let i = 0; i < vertices.length; ++i) {
+                const vert = vertices[i];
+                ctx.fillStyle = i == fromIdx ? 'green' : vert.selected ? 'red' : '#aaa';
+                ctx.strokeStyle = 'black';
+                ctx.beginPath();
+                ctx.ellipse((vert.x * zoom - x) * canvas.width, (vert.y * zoom - y) * canvas.height, 0.003 * canvas.width, 0.003 * canvas.height, Math.PI * 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            const colours = [
+                '#0099ff',
+                '#00ff73',
+                '#ffee00',
+                '#ff7b00',
+                '#ff0000',
+                '#ffffff'
+            ];
+            for (const vert of vertices) {
+                for (const j of vert.neighbours) {
+                    const to = vertices[j];
+                    if ('hsComplexity' in vert && 'hsComplexity' in to) {
+                        const complexity = Math.min(vert.hsComplexity, to.hsComplexity);
+                        ctx.strokeStyle = colours[complexity % colours.length];
+                    } else {
+                        ctx.strokeStyle = 'white';
+                    }
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke(new Path2D(`M ${xToCanv(vert.x)} ${yToCanv(vert.y)} L ${xToCanv(to.x)} ${yToCanv(to.y)}`));
+                }
+            }
+        }
+        
+        const setImage = async (url) => {
+            const imgFull = new Image;
+            imgFull.src = url;
+            await new Promise(r => imgFull.onload = r);
+            const targetSize = Math.max(imgFull.width, imgFull.height);
+            const cv = document.createElement('canvas');
+            cv.width = cv.height = targetSize;
+            const ctx = cv.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.drawImage(imgFull, 0, 0, imgFull.width, imgFull.height);
+            img.src = cv.toDataURL();
+            await new Promise(r => img.onload = r);
+            refresh();
+        };
+        
+        // File upload
+        setImage('default.png');
+        const input = document.createElement('input');
+        input.type = 'file';
+        document.body.append(input);
+        input.onchange = async () => {
+            setImage(URL.createObjectURL(input.files[0]));
+        };
+        
+        const jsonInput = document.createElement('input');
+        jsonInput.type = 'file';
+        jsonInput.style.top = '30px';
+        document.body.append(jsonInput);
+        jsonInput.onchange = async () => {
+            const reader = new FileReader();
+            reader.readAsText(jsonInput.files[0], "UTF-8");
+            await new Promise(r => reader.onload = r);
+            vertices = JSON.parse(reader.result);
+        };
+        
+        let prevX = null;
+        let prevY = null;
+        let mouseDown = false;
+        let mouseDownStart = null;
+        document.body.addEventListener('mousedown', evt => {
+            mouseDown = true;
+            prevX = evt.x;
+            prevY = evt.y;
+            mouseDownStart = performance.now();
+        });
+        document.body.addEventListener('mouseup', evt => {
+            mouseDown = false;
+            // click to add vertex
+            if (performance.now() - mouseDownStart < 150 && evt.target == canvas) {
+                for (let i = 0; i < vertices.length; ++i) {
+                    vertices[i].selected = false;
+                }
+                vertices.push({
+                    x: (evt.clientX / canvas.width + x) / zoom,
+                    y: (evt.clientY / canvas.height + y) / zoom,
+                    neighbours: vertices.length > 0 ? [fromIdx || vertices.length - 1] : [],
+                    selected: true
+                });
+                for (const j of vertices[vertices.length - 1].neighbours) {
+                    vertices[j].neighbours.push(vertices.length - 1);
+                }
+                fromIdx = vertices.length - 1;
+                refresh();
+            }
+        });
+        document.body.addEventListener('mousemove', evt => {
+            
+            // select nearby vertex
+            let closestIdx = null;
+            let closestDist = null;
+            const ptX = (evt.clientX / canvas.width + x) / zoom;
+            const ptY = (evt.clientY / canvas.height + y) / zoom
+            for (let i = 0; i < vertices.length; ++i) {
+                vertices[i].selected = false;
+                const dx = ptX - vertices[i].x;
+                const dy = ptY - vertices[i].y;
+                const dist = dx*dx + dy*dy;
+                if (closestIdx === null || dist < closestDist) {
+                    closestIdx = i;
+                    closestDist = dist;
+                }
+            }
+            if (closestDist !== null && closestDist < 0.00002 / zoom) {
+                vertices[closestIdx].selected = true;
+            }
+            
+            // handle drag to pan
+            if (mouseDown) {
+                const dx = evt.x - prevX;
+                const dy = evt.y - prevY;
+                prevX = evt.x;
+                prevY = evt.y;
+                x -= dx / canvas.width;
+                y -= dy / canvas.width;
+            }
+            refresh();
+        });
+        document.body.addEventListener('wheel', evt => {
+            // scroll to zoom
+            const dir = Math.sign(evt.deltaY);
+            if (dir < 0) {
+                zoom /= 0.95;
+            } else {
+                zoom *= 0.95;
+            }
+            if (zoom < 1) zoom = 1;
+            refresh();
+        });
+        document.body.addEventListener('keydown', evt => {
+            switch (evt.key) {
+                case 'Delete':
+                    // Delete the selected node
+                    let rm = -1;
+                    for (let i = 0; i < vertices.length; ++i) {
+                        if (vertices[i].selected) {
+                            rm = i;
+                        }
+                    }
+                    if (rm > -1) {
+                        vertices.splice(rm, 1);
+                        for (const vert of vertices) {
+                            for (let i = 0; i < vert.neighbours.length; ++i) {
+                                if (vert.neighbours[i] == rm) {
+                                    vert.neighbours.splice(i, 1);
+                                    break;
+                                }
+                            }
+                            for (let i = 0; i < vert.neighbours.length; ++i) {
+                                if (vert.neighbours[i] >= rm) {
+                                    --vert.neighbours[i];
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 'b':
+                    let selectedIdx = -1;
+                    for (let i = 0; i < vertices.length; ++i) {
+                        if (vertices[i].selected) {
+                            selectedIdx = i;
+                        }
+                    }
+                    if (fromIdx !== null && selectedIdx != fromIdx) {
+                        vertices[selectedIdx].neighbours.push(fromIdx);
+                        vertices[fromIdx].neighbours.push(selectedIdx);
+                    }
+                    break;
+                case 's':
+                    if (evt.ctrlKey) {
+                        const a = document.createElement("a");
+                        const file = new Blob([ JSON.stringify(vertices) ], { type: 'application/json' });
+                        a.href = URL.createObjectURL(file);
+                        a.download = "strahler.json";
+                        a.click();
+                        evt.preventDefault();
+                        return false;
+                    }
+                    break;
+                case 'a':
+                    // Horton-Strahler analysis
+                    for (let i = 0; i < vertices.length; ++i) {
+                        vertices[i].hsComplexity = -1;
+                    }
+                    const remainingIndices = new Set(Array(vertices.length).keys());
+                    const leafNodesFrom = (i, from = -1) => {
+                        let nodes = [i];
+                        for (const j of vertices[i].neighbours) {
+                            if (!remainingIndices.has(j)) continue;
+                            if (j == from) continue;
+                            let numNeighbours = 0;
+                            for (const k of vertices[j].neighbours) {
+                                if (!remainingIndices.has(k)) continue;
+                                ++numNeighbours;
+                            }
+                            if (numNeighbours > 2) continue; // not part of the same leaf anymore if it's a branching point
+                            nodes = nodes.concat(leafNodesFrom(j, i));
+                        }
+                        return nodes;
+                    };
+                    while (remainingIndices.size > 0) {
+                        console.group('Remaining: ', remainingIndices.size);
+                        // remove all leaf branches
+                        const markedForDeletion = new Set;
+                        for (const i of remainingIndices) {
+                            ++vertices[i].hsComplexity;
+                            
+                            let numNeighbours = 0;
+                            for (const j of vertices[i].neighbours) {
+                                if (remainingIndices.has(j)) {
+                                    ++numNeighbours;
+                                }
+                            }
+                            if (numNeighbours <= 1) {
+                                // tip of leaf node, mark for deletion up until next branching point
+                                const leafNodes = leafNodesFrom(i);
+                                for (const j of leafNodes) {
+                                    markedForDeletion.add(j);
+                                }
+                            }
+                        }
+                        for (const i of markedForDeletion) {
+                            remainingIndices.delete(i);
+                        }
+                        console.log('Removed', markedForDeletion.size);
+                        console.groupEnd();
+                        if (markedForDeletion.length <= 0) {
+                            console.error('Step of H-S complexity computation ended up with no nodes to delete for the next level, but ' + remainingIndices.size + ' indices remain...!');
+                            break;
+                        }
+                    }
+                    break;
+                case 'Control':
+                    for (let i = 0; i < vertices.length; ++i) {
+                        if (vertices[i].selected) {
+                            fromIdx = i;
+                        }
+                    }
+                    break;
+                default:
+                    console.log('No handler for: "' + evt.key + '"');
+                    return;
+            }
+            refresh();
+        });
+        
+    </script>
+</body>
+</html>
