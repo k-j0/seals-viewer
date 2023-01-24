@@ -3,7 +3,7 @@ import * as THREE from './libs/three.js';
 import { mergeBufferGeometries } from './BufferGeometryUtils.js';
 
 
-const QUICK_MODE = true;
+const QUICK_MODE = false;
 
 
 function forceImpl (name) {
@@ -81,7 +81,8 @@ class Importer {
                                                       Boundary type: ${stats.boundaryType ?? 'none'}<br/>
                                                       Growth strategy: ${stats.growthStrategy ?? 'unknown'}<br/>
                                                       Delta time: ${stats.deltaTime ?? 'N/A'}<br/>
-                                                      Volume: ${stats.volume ?? 'unknown'}`;
+                                                      Volume: ${stats.volume ?? 'unknown'}<br/>
+                                                      Volume fraction: ${stats.volumeFraction ?? 'unknown'}`;
     }
 
 };
@@ -153,12 +154,12 @@ class JsonImporter extends Importer {
             geo.computeVertexNormals();
             this._onUpdateGeo(geo);
         } else {
-
+            
             const svgCtx = this._svgCtx;
             const svgCanvas = this._svgCanvas;
-
+            
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
-                
+            
             if (surface.boundary !== null) {
                 switch (surface.boundary.type) {
                     case 'sphere':
@@ -328,9 +329,27 @@ class BinaryImporter extends Importer {
         const deltaTime = this.#float();
         const runtime = this.#int();
         const volume = fileVersion < 1 ? null : this.#float();
-        const numParticles = this.#int();
-
+        
+        // Read boundary, if defined in the file
+        const hasBoundary = fileVersion < 4 ? false : this.#int(8);
+        let boundary = null;
+        if (hasBoundary) {
+            const boundaryType = this.#int(8);
+            if (boundaryType == 0) { // sphere
+                const radius = this.#float();
+                const extent = this.#float();
+                boundary = { type: 'sphere', radius: radius, extent: extent, volume: Math.PI * radius * radius };
+            } else if (boundaryType == 1) { // cylinder
+                const radius = this.#float();
+                const extent = this.#float();
+                boudnary = { type: 'cylinder', radius: radius, extent: extent, volume: Math.PI * radius * radius /* assuming height = 1 */ };
+            } else {
+                throw new Error(`Unsupported boundary type found in binary file: ${boundaryType}.`);
+            }
+        }
+        
         // Read particle positions
+        const numParticles = this.#int();
         const particles = [];
         for (let i = 0; i < numParticles; ++i) {
             const particle = { position: this.#vec(this.dimension) };
@@ -389,13 +408,19 @@ class BinaryImporter extends Importer {
             boundaryType: null,
             growthStrategy: null,
             deltaTime: deltaTime,
-            volume: volume
+            volume: volume,
+            boundaryType: boundary ? `${boundary.type} [volume: ${boundary.volume}]` : null,
+            volumeFraction: boundary && volume ? volume / boundary.volume : null
         });
         
         // Display the surface
         if (this.dimension == 3) {
 
-            this._onUpdateBoundaryGeo(new THREE.BufferGeometry); // no boundary shown when loading in a binary file - @todo
+            this._onUpdateBoundaryGeo(
+                boundary === null ? new THREE.BufferGeometry :
+                boundary.type === 'cylinder' ? new THREE.CylinderGeometry(boundary.radius, boundary.radius, 100, 32, 320, true).rotateX(Math.PI / 2) :
+                boundary.type === 'sphere' ? new THREE.IcosahedronGeometry(boundary.radius, 8) : (() => { throw `Unknown boundary type ${boundary.type}!`; })()
+            );
             
             // build up geometry
             if (type.startsWith('t')) { // tree
@@ -462,14 +487,27 @@ class BinaryImporter extends Importer {
                 this._onUpdateGeo(geo);
             }
         } else {
-
+            
             const svgCtx = this._svgCtx;
             const svgCanvas = this._svgCanvas;
-
+            
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
             svgCtx.lineCap = 'round';
-                
-            // @todo - no boundary shown
+            
+            if (boundary !== null) {
+                switch (boundary.type) {
+                    case 'sphere':
+                        svgCtx.fillStyle = "#fff5";
+                        svgCtx.strokeStyle = '#000';
+                        svgCtx.beginPath();
+                        svgCtx.arc(svgCanvas.width/2, svgCanvas.height/2, svgCanvas.width * boundary.radius * 0.9, 0, 2 * Math.PI);
+                        svgCtx.fill();
+                        svgCtx.stroke();
+                        break;
+                    default:
+                        console.error('Unknown boundary type for boundary', boundary, '!');
+                }
+            }
             
             const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
             
