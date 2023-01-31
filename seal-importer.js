@@ -3,7 +3,7 @@ import * as THREE from './libs/three.js';
 import { mergeBufferGeometries } from './BufferGeometryUtils.js';
 
 
-const QUICK_MODE = false;
+const QUICK_MODE = (new URLSearchParams(window.location.search)).has('quick');
 
 
 function forceImpl (name) {
