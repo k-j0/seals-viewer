@@ -49,7 +49,7 @@ class Importer {
         this._rewind();
         while (true) {
             if (!this._readNext()) return;
-            if (!QUICK_MODE) await new Promise(resolve => setTimeout(resolve, 5));
+            if (!QUICK_MODE) await new Promise(resolve => setTimeout(resolve, 1));
             if (playingIdx !== this.#playingIdx) {
                 return;
             }
@@ -338,11 +338,13 @@ class BinaryImporter extends Importer {
             if (boundaryType == 0) { // sphere
                 const radius = this.#float();
                 const extent = this.#float();
-                boundary = { type: 'sphere', radius: radius, extent: extent, volume: Math.PI * radius * radius };
+                const withOffset = fileVersion < 5 ? false : this.#byte() == 1;
+                boundary = { type: 'sphere', radius: radius, extent: extent, volume: Math.PI * radius * radius, withOffset };
             } else if (boundaryType == 1) { // cylinder
                 const radius = this.#float();
                 const extent = this.#float();
-                boudnary = { type: 'cylinder', radius: radius, extent: extent, volume: Math.PI * radius * radius /* assuming height = 1 */ };
+                const withOffset = false;
+                boudnary = { type: 'cylinder', radius: radius, extent: extent, volume: Math.PI * radius * radius /* assuming height = 1 */, withOffset };
             } else {
                 throw new Error(`Unsupported boundary type found in binary file: ${boundaryType}.`);
             }
@@ -494,13 +496,15 @@ class BinaryImporter extends Importer {
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
             svgCtx.lineCap = 'round';
             
+            const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
+            
             if (boundary !== null) {
                 switch (boundary.type) {
                     case 'sphere':
                         svgCtx.fillStyle = "#fff5";
                         svgCtx.strokeStyle = '#000';
                         svgCtx.beginPath();
-                        svgCtx.arc(svgCanvas.width/2, svgCanvas.height/2, svgCanvas.width * boundary.radius * 0.9, 0, 2 * Math.PI);
+                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * boundary.radius * 0.9, 0, 2 * Math.PI);
                         svgCtx.fill();
                         svgCtx.stroke();
                         break;
@@ -508,8 +512,6 @@ class BinaryImporter extends Importer {
                         console.error('Unknown boundary type for boundary', boundary, '!');
                 }
             }
-            
-            const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
             
             if (type.startsWith('t')) {
                 // tree (graph)
@@ -528,7 +530,7 @@ class BinaryImporter extends Importer {
                 const youngs = new Set(youngIndices);
                 for (let i = 0; i < particles.length; ++i) {
                     svgCtx.beginPath();
-                    svgCtx.fillStyle = youngs.has(i) ? '#fff' : '#666';
+                    svgCtx.fillStyle = i == 0 ? '#ff0' : youngs.has(i) ? '#fff' : '#666';
                     svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
                     svgCtx.fill();
                     svgCtx.stroke();
