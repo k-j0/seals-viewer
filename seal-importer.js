@@ -668,11 +668,11 @@ class BinaryImporter extends Importer {
                 const sz = 1024;
                 let svg = `
                     <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
-                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='lightblue' />
+                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='black' />
                 `;
                 if (type.startsWith('t')) {
                     // tree
-                    const showSkeleton = true;
+                    const showSkeleton = false;
                     for (let i = 0; i < particles.length; ++i) {
                         const from = ((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz);
                         for (let j of particles[i].neighbours) {
@@ -681,7 +681,7 @@ class BinaryImporter extends Importer {
                                         d='M ${from} L ${to}'
                                         stroke='white'
                                         fill='none'
-                                        stroke-width='5'
+                                        stroke-width='1.5'
                                         stroke-linejoin='round'
                                         stroke-linecap='round'
                                     />`;

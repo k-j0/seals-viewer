@@ -252,15 +252,34 @@
             // div.addEventListener('click', () => document.body.removeChild(div));
             // document.body.append(div);
         });
-        document.getElementById('save').addEventListener('click', () => {
+        document.getElementById('save').addEventListener('click', async () => {
             if (importer === null) {
                 console.warn('No imported surface yet!');
                 return;
             }
             const svg = importer.exportSVG();
             if (svg === undefined) return;
+            const base64 = btoa(svg);
+            
+            // draw into canvas
+            const img = new Image;
+            img.src = `data:image/svg+xml;base64,${base64}`;
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // save both the svg and the bitmap
             const a = document.createElement('a');
-            a.href = `data:image/svg+xml;base64,${btoa(svg)}`;
+            a.href = canvas.toDataURL();
+            a.download = `seal.png`;
+            a.click();
+            a.href = `data:image/svg+xml;base64,${base64}`;
             a.download = `seal.svg`;
             a.click();
         });
