@@ -49,7 +49,7 @@ class Importer {
         this._rewind();
         while (true) {
             if (!this._readNext()) return;
-            if (!QUICK_MODE) await new Promise(resolve => setTimeout(resolve, 1));
+            if (!QUICK_MODE) await new Promise(requestAnimationFrame);//resolve => setTimeout(resolve, 1));
             if (playingIdx !== this.#playingIdx) {
                 return;
             }
@@ -496,7 +496,7 @@ class BinaryImporter extends Importer {
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
             svgCtx.lineCap = 'round';
             
-            const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
+            const pos = (x) => (x * 0.8 + 0.5) * svgCanvas.width;
             
             if (boundary !== null) {
                 switch (boundary.type) {
@@ -504,7 +504,7 @@ class BinaryImporter extends Importer {
                         svgCtx.fillStyle = "#fff5";
                         svgCtx.strokeStyle = '#000';
                         svgCtx.beginPath();
-                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * boundary.radius * 0.9, 0, 2 * Math.PI);
+                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * boundary.radius * 0.8, 0, 2 * Math.PI);
                         svgCtx.fill();
                         svgCtx.stroke();
                         break;
@@ -530,7 +530,7 @@ class BinaryImporter extends Importer {
                 const youngs = new Set(youngIndices);
                 for (let i = 0; i < particles.length; ++i) {
                     svgCtx.beginPath();
-                    svgCtx.fillStyle = i == 0 ? '#ff0' : youngs.has(i) ? '#fff' : '#666';
+                    svgCtx.fillStyle = i == 0 ? '#ff0' : youngs.has(i) ? '#999' : '#666';
                     svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
                     svgCtx.fill();
                     svgCtx.stroke();
@@ -573,6 +573,11 @@ class BinaryImporter extends Importer {
                         for (const i of remainingIndices) {
                             ++particles[i].hsComplexity;
                             
+                            // determines whether the first particle should be assumed attached - if not
+                            if (i == 0 && remainingIndices.size > 1) {
+                                continue;
+                            }
+                            
                             let numNeighbours = 0;
                             for (const j of particles[i].neighbours) {
                                 if (remainingIndices.has(j)) {
@@ -602,6 +607,7 @@ class BinaryImporter extends Importer {
                     const colours = [
                         '#0099ff',
                         '#00ff73',
+                        '#b3ff00',
                         '#ffee00',
                         '#ff7b00',
                         '#ff0000',
