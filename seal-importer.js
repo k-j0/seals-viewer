@@ -496,7 +496,7 @@ class BinaryImporter extends Importer {
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
             svgCtx.lineCap = 'round';
             
-            const pos = (x) => (x * 0.8 + 0.5) * svgCanvas.width;
+            const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
             
             if (boundary !== null) {
                 switch (boundary.type) {
@@ -504,7 +504,7 @@ class BinaryImporter extends Importer {
                         svgCtx.fillStyle = "#fff5";
                         svgCtx.strokeStyle = '#000';
                         svgCtx.beginPath();
-                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * boundary.radius * 0.8, 0, 2 * Math.PI);
+                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * boundary.radius * 0.9, 0, 2 * Math.PI);
                         svgCtx.fill();
                         svgCtx.stroke();
                         break;
@@ -605,20 +605,20 @@ class BinaryImporter extends Importer {
                     
                     // Display H-S BCs
                     const colours = [
-                        '#0099ff',
-                        '#00ff73',
-                        '#b3ff00',
-                        '#ffee00',
-                        '#ff7b00',
+                        '#0069af',
+                        '#00d3b7',
+                        '#2cdd00',
+                        '#e6e200',
+                        '#eb7100',
                         '#ff0000',
-                        '#ffffff'
+                        '#690000'
                     ];
                     colours.default = 'magenta';
                     colours[-1] = 'white';
-                    svgCtx.fillStyle = '#001';
+                    svgCtx.fillStyle = '#fff';
                     svgCtx.fillRect(0, 0, svgCanvas.width, svgCanvas.height);
-                    svgCtx.strokeStyle = '#444';
-                    svgCtx.lineWidth = 0.004 * 2 * svgCanvas.width;
+                    svgCtx.strokeStyle = '#333';
+                    svgCtx.lineWidth = 7;
                     for (let i = 0; i < particles.length; ++i) {
                         const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
                         for (let j of particles[i].neighbours) {
@@ -626,27 +626,30 @@ class BinaryImporter extends Importer {
                             svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
                         }
                     }
-                    svgCtx.strokeStyle = '#333';
-                    svgCtx.lineWidth = 1;
-                    const youngs = new Set(youngIndices);
-                    for (let i = 0; i < particles.length; ++i) {
-                        svgCtx.beginPath();
-                        svgCtx.fillStyle = youngs.has(i) ? '#bbb' : '#999';
-                        svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
-                        svgCtx.fill();
-                        svgCtx.stroke();
-                    }
-                    svgCtx.lineWidth = 1.5;
-                    for (let i = 0; i < particles.length; ++i) {
-                        const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
-                        for (let j of particles[i].neighbours) {
-                            
-                            // Horton-Strahler complexity of the branch as the lowest among the two nodes
-                            const hsComplexity = Math.min(particles[i].hsComplexity, particles[j].hsComplexity);
-                            
-                            const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
-                            svgCtx.strokeStyle = colours[hsComplexity >= colours.length ? 'default' : hsComplexity];
-                            svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                    // svgCtx.strokeStyle = '#333';
+                    // svgCtx.lineWidth = 1;
+                    // const youngs = new Set(youngIndices);
+                    // for (let i = 0; i < particles.length; ++i) {
+                    //     svgCtx.beginPath();
+                    //     svgCtx.fillStyle = youngs.has(i) ? '#bbb' : '#999';
+                    //     svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                    //     svgCtx.fill();
+                    //     svgCtx.stroke();
+                    // }
+                    svgCtx.lineWidth = 3;
+                    for (let complexity = 0; complexity < 10; ++complexity) {
+                        for (let i = 0; i < particles.length; ++i) {
+                            const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
+                            for (let j of particles[i].neighbours) {
+                                
+                                // Horton-Strahler complexity of the branch as the lowest among the two nodes
+                                const hsComplexity = Math.min(particles[i].hsComplexity, particles[j].hsComplexity);
+                                if (hsComplexity != complexity) continue;
+                                
+                                const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
+                                svgCtx.strokeStyle = colours[hsComplexity >= colours.length ? 'default' : hsComplexity];
+                                svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                            }
                         }
                     }
                     
