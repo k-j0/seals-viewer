@@ -293,7 +293,7 @@ class BinaryImporter extends Importer {
         }
         return arr;
     }
-
+    
     _readNext () {
         if (this.#idx >= this.data.length) return false;
         
@@ -312,7 +312,7 @@ class BinaryImporter extends Importer {
         } else {
             throw `Invalid header '${header}' != 'SEL' (and != 'SRF') at location ${this.#idx-3}, file is not a valid binary surface!`;
         }
-
+        
         // read metadata
         this.dimension = this.#byte();
         this._onSetDimension(this.dimension);
@@ -496,7 +496,8 @@ class BinaryImporter extends Importer {
             svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
             svgCtx.lineCap = 'round';
             
-            const pos = (x) => (x * 0.9 + 0.5) * svgCanvas.width;
+            const scaleToBoundaryRadius = false && boundary !== null;
+            const pos = (x) => (x * 0.45 * (scaleToBoundaryRadius ? 1/boundary.radius : 2) + 0.5) * svgCanvas.width;
             
             if (boundary !== null) {
                 switch (boundary.type) {
@@ -504,7 +505,7 @@ class BinaryImporter extends Importer {
                         svgCtx.fillStyle = "#fff5";
                         svgCtx.strokeStyle = '#000';
                         svgCtx.beginPath();
-                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * boundary.radius * 0.9, 0, 2 * Math.PI);
+                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * 0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius), 0, 2 * Math.PI);
                         svgCtx.fill();
                         svgCtx.stroke();
                         break;
@@ -677,18 +678,39 @@ class BinaryImporter extends Importer {
                 const sz = 1024;
                 let svg = `
                     <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
-                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='black' />
+                        <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
                 `;
                 if (type.startsWith('t')) {
                     // tree
+                    
                     const showSkeleton = false;
+                    const showBoundary = true;
+                    
+                    if (showBoundary && boundary !== null) {
+                        switch (boundary.type) {
+                            case 'sphere':
+                                svg += `<ellipse
+                                            cx="${sz/2}"
+                                            cy="${sz/2}"
+                                            rx="${0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius)*sz}"
+                                            ry="${0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius)*sz}"
+                                            stroke='black'
+                                            stroke-width="3"
+                                            fill='none'
+                                        />`;
+                                break;
+                            default:
+                                console.error('Unknown boundary type for boundary', boundary, '!');
+                        }
+                    }
+                    
                     for (let i = 0; i < particles.length; ++i) {
-                        const from = ((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                        const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
                         for (let j of particles[i].neighbours) {
-                            const to = ((particles[j].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[j].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                            const to = (1 / svgCanvas.width * pos(particles[j].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[j].position[1]) * sz);
                             svg += `<path
                                         d='M ${from} L ${to}'
-                                        stroke='white'
+                                        stroke='black'
                                         fill='none'
                                         stroke-width='1.5'
                                         stroke-linejoin='round'
@@ -698,9 +720,9 @@ class BinaryImporter extends Importer {
                     }
                     if (showSkeleton) {
                         for (let i = 0; i < particles.length; ++i) {
-                            const from = ((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                            const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
                             for (let j of particles[i].neighbours) {
-                                const to = ((particles[j].position[0] * 0.5 * 0.9 + 0.5) * sz) + ' ' + ((particles[j].position[1] * 0.5 * 0.9 + 0.5) * sz);
+                                const to = (1 / svgCanvas.width * pos(particles[j].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[j].position[1]) * sz);
                                 svg += `<path
                                             d='M ${from} L ${to}'
                                             stroke='black'
@@ -710,7 +732,7 @@ class BinaryImporter extends Importer {
                             }
                         }
                         for (let i = 0; i < particles.length; ++i) {
-                            svg += `<ellipse cx="${((particles[i].position[0] * 0.5 * 0.9 + 0.5) * sz)}" cy="${((particles[i].position[1] * 0.5 * 0.9 + 0.5) * sz)}" rx="1" ry="1" fill="black" stroke="none" />`;
+                            svg += `<ellipse cx="${(1 / svgCanvas.width * pos(particles[i].position[0]) * sz)}" cy="${(1 / svgCanvas.width * pos(particles[i].position[1]) * sz)}" rx="1" ry="1" fill="black" stroke="none" />`;
                         }
                     }
                 } else {
@@ -730,10 +752,32 @@ class BinaryImporter extends Importer {
                 return svg;
             };
             
+            // uncomment to start downloading full series of PNGs for the iterations
+            // caution - this takes a while!
+            // const svg = this.exportSVG();
+            // if (svg === undefined) return;
+            // const base64 = btoa(svg);
+            // const img = new Image;
+            // img.src = `data:image/svg+xml;base64,${base64}`;
+            // const myidx = this.idx;
+            // ++this.idx;
+            // img.onload = () => {
+            //     const canvas = document.createElement('canvas');
+            //     canvas.width = img.width;
+            //     canvas.height = img.height;
+            //     const ctx = canvas.getContext('2d');
+            //     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            //     const a = document.createElement('a');
+            //     a.href = canvas.toDataURL();
+            //     a.download = `${myidx}.png`;
+            //     a.click();
+            // }
         }
 
         return true;
     }
+    
+    idx = 1
 
 };
 
