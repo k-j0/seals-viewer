@@ -344,7 +344,7 @@ class BinaryImporter extends Importer {
                 const radius = this.#float();
                 const extent = this.#float();
                 const withOffset = false;
-                boudnary = { type: 'cylinder', radius: radius, extent: extent, volume: Math.PI * radius * radius /* assuming height = 1 */, withOffset };
+                boundary = { type: 'cylinder', radius: radius, extent: extent, volume: Math.PI * radius * radius /* assuming height = 1 */, withOffset };
             } else {
                 throw new Error(`Unsupported boundary type found in binary file: ${boundaryType}.`);
             }
@@ -664,7 +664,7 @@ class BinaryImporter extends Importer {
                 svgCtx.strokeStyle = '#000';
                 do {
                     let point = particles[current];
-                    path += parseInt((point.position[0] * 0.5 * 0.9 + 0.5) * svgCanvas.width) + ' ' + parseInt((point.position[1] * 0.5 * 0.9 + 0.5) * svgCanvas.height) + ' ';
+                    path += pos(point.position[0]) + ' ' + pos(point.position[1]) + ' ';
                     current = point.next;
                     if (current == 0) path += 'Z';
                     else path += 'L ';

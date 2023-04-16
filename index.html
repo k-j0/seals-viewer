@@ -110,13 +110,14 @@
         renderer.domElement.className = 'three';
         document.body.append(renderer.domElement);
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color('lightblue');
+        scene.background = new THREE.Color('white');
+        scene.fog = new THREE.Fog('black', 1.5, 3);
         const group = new THREE.Group();
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: 'black', wireframe: true }));
         group.add(mesh);
         const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 'white', flatShading: true }));
         group.add(mesh2);
-        const lineMesh = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 'white' }));
+        const lineMesh = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 'black' }));
         group.add(lineMesh);
         const boundary = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 8), new THREE.MeshBasicMaterial({ color: 'grey', transparent: true, opacity: 0.2 }));
         group.add(boundary);
@@ -304,6 +305,44 @@
                 } else if (evnt.code == 'ArrowDown') {
                     crossSectionPlane.position.z -= 0.1;
                 }
+            }
+            
+            // fog controls
+            if (evnt.code == 'KeyF') {
+                // move fog closer
+                const distance = (scene.fog.near + scene.fog.far) * 0.5;
+                const newDistance = distance * 0.95;
+                const delta = newDistance - distance;
+                scene.fog.near += delta;
+                scene.fog.far += delta;
+            } else if (evnt.code == 'KeyR') {
+                // push fog further
+                const distance = (scene.fog.near + scene.fog.far) * 0.5;
+                const newDistance = distance * 1.1;
+                const delta = newDistance - distance;
+                scene.fog.near += delta;
+                scene.fog.far += delta;
+            } else if (evnt.code == 'KeyG') {
+                // decrease contrast
+                const distance = (scene.fog.near + scene.fog.far) * 0.5;
+                const length = scene.fog.far - scene.fog.near;
+                const newLength = length * 1.1;
+                scene.fog.near = distance - newLength / 2;
+                scene.fog.far = distance + newLength / 2;
+            } else if (evnt.code == 'KeyT') {
+                // increase contrast
+                const distance = (scene.fog.near + scene.fog.far) * 0.5;
+                const length = scene.fog.far - scene.fog.near;
+                const newLength = length * 0.95;
+                scene.fog.near = distance - newLength / 2;
+                scene.fog.far = distance + newLength / 2;
+            }
+            
+            if (evnt.code == 'KeyY') {
+                // invert fog colour
+                scene.fog.color = new THREE.Color('white');
+            } else if (evnt.code == 'KeyH') {
+                scene.fog.color = new THREE.Color('black');
             }
         });
         document.addEventListener('keyup', (evnt) => {
