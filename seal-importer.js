@@ -27,7 +27,7 @@ class Importer {
 
     _rewind () { forceImpl('_rewind'); }
 
-    _readNext () { forceImpl('_readNext'); }
+    async _readNext () { forceImpl('_readNext'); }
 
     import (data, onSetDimension, onUpdateBoundaryGeo, onUpdateGeo, svgCtx, svgCanvas) {
         this.data = data;
@@ -48,7 +48,7 @@ class Importer {
         const playingIdx = this.#playingIdx;
         this._rewind();
         while (true) {
-            if (!this._readNext()) return;
+            if (!(await this._readNext())) return;
             if (!QUICK_MODE) await new Promise(requestAnimationFrame);//resolve => setTimeout(resolve, 1));
             if (playingIdx !== this.#playingIdx) {
                 return;
@@ -102,7 +102,7 @@ class JsonImporter extends Importer {
         this.#idx = 0;
     }
 
-    _readNext () {
+    async _readNext () {
         if (this.data.length <= this.#idx) return false;
         const surface = this.data[this.#idx++];
         
@@ -216,8 +216,11 @@ class JsonImporter extends Importer {
 
 };
 
+let volumes = [];
+
 class BinaryImporter extends Importer {
     #idx = 0;
+    #zip = new JSZip;
     #floatView = new DataView(new ArrayBuffer(4));
     #doubleView = new DataView(new ArrayBuffer(8));
 
@@ -294,8 +297,15 @@ class BinaryImporter extends Importer {
         return arr;
     }
     
-    _readNext () {
-        if (this.#idx >= this.data.length) return false;
+    async _readNext () {
+        if (this.#idx >= this.data.length) {
+            const zipContent = await this.#zip.generateAsync({ type:"blob" });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(zipContent);
+            a.download = `seal-images.zip`;
+            a.click();
+            return false;
+        }
         
         if ('refine' in this) delete this.refine;
         
@@ -348,6 +358,8 @@ class BinaryImporter extends Importer {
             } else {
                 throw new Error(`Unsupported boundary type found in binary file: ${boundaryType}.`);
             }
+            volumes.push(volume / boundary.volume);
+            console.log(volumes);
         }
         
         // Read particle positions
@@ -680,29 +692,30 @@ class BinaryImporter extends Importer {
                     <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
                         <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
                 `;
+                
+                const showBoundary = false;
+                if (showBoundary && boundary !== null) {
+                    switch (boundary.type) {
+                        case 'sphere':
+                            svg += `<ellipse
+                                        cx="${sz/2}"
+                                        cy="${sz/2}"
+                                        rx="${0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius)*sz}"
+                                        ry="${0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius)*sz}"
+                                        stroke='black'
+                                        stroke-width="3"
+                                        fill='none'
+                                    />`;
+                            break;
+                        default:
+                            console.error('Unknown boundary type for boundary', boundary, '!');
+                    }
+                }
+                
                 if (type.startsWith('t')) {
                     // tree
                     
                     const showSkeleton = false;
-                    const showBoundary = true;
-                    
-                    if (showBoundary && boundary !== null) {
-                        switch (boundary.type) {
-                            case 'sphere':
-                                svg += `<ellipse
-                                            cx="${sz/2}"
-                                            cy="${sz/2}"
-                                            rx="${0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius)*sz}"
-                                            ry="${0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius)*sz}"
-                                            stroke='black'
-                                            stroke-width="3"
-                                            fill='none'
-                                        />`;
-                                break;
-                            default:
-                                console.error('Unknown boundary type for boundary', boundary, '!');
-                        }
-                    }
                     
                     for (let i = 0; i < particles.length; ++i) {
                         const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
@@ -712,7 +725,7 @@ class BinaryImporter extends Importer {
                                         d='M ${from} L ${to}'
                                         stroke='black'
                                         fill='none'
-                                        stroke-width='1.5'
+                                        stroke-width='5.5'
                                         stroke-linejoin='round'
                                         stroke-linecap='round'
                                     />`;
@@ -744,34 +757,32 @@ class BinaryImporter extends Importer {
                         current = particles[current].next;
                     } while (current != 0);
                     svg += `<path
-                                d='M ${points.map(p => `${parseInt((p[0] * 0.5 * 0.9 + 0.5) * sz)} ${parseInt((p[1] * 0.5 * 0.9 + 0.5) * sz)}`).join(' L ')} Z'
-                                fill='white'
+                                d='M ${points.map(p => `${1 / svgCanvas.width * pos(p[0]) * sz} ${1 / svgCanvas.height * pos(p[1]) * sz}`).join(' L ')} Z'
+                                fill='#000'
+                                stroke-width='1'
+                                stroke='black'
                             />`
                 }
                 svg += `</svg>`;
                 return svg;
             };
             
-            // uncomment to start downloading full series of PNGs for the iterations
-            // caution - this takes a while!
-            // const svg = this.exportSVG();
-            // if (svg === undefined) return;
-            // const base64 = btoa(svg);
-            // const img = new Image;
-            // img.src = `data:image/svg+xml;base64,${base64}`;
-            // const myidx = this.idx;
-            // ++this.idx;
-            // img.onload = () => {
-            //     const canvas = document.createElement('canvas');
-            //     canvas.width = img.width;
-            //     canvas.height = img.height;
-            //     const ctx = canvas.getContext('2d');
-            //     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            //     const a = document.createElement('a');
-            //     a.href = canvas.toDataURL();
-            //     a.download = `${myidx}.png`;
-            //     a.click();
-            // }
+            // start downloading full series of PNGs for the iterations
+            const myidx = this.idx;
+            ++this.idx;
+            if (myidx % 5 != 0) return true;
+            const svg = this.exportSVG();
+            if (svg === undefined) return;
+            const base64 = btoa(svg);
+            const img = new Image;
+            img.src = `data:image/svg+xml;base64,${base64}`;
+            await new Promise(resolve => img.onload = resolve);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            this.#zip.file(`${this.idx}.png`, canvas.toDataURL().split(';base64,')[1], { base64: true });
         }
 
         return true;
