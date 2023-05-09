@@ -105,7 +105,7 @@
         import { OrbitControls } from './OrbitControls.js';
         import * as Analysis from './analysis.js';
         import { CrossSection } from './cross-section.js';
-        import { JsonImporter, BinaryImporter } from './seal-importer.js';
+        import { JsonImporter, BinaryImporter, exportZipFile } from './seal-importer.js';
         
         // setup 3D renderer
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
@@ -164,26 +164,34 @@
         // import from json
         const input = document.createElement('input');
         input.type = 'file';
+        input.multiple = true;
         let importer = null;
-        input.addEventListener('change', () => {
-
-            const binary = !input.files[0].name.endsWith('json');
-
-            if (importer !== null) {
-                importer.stop();
-                importer = null;
-            }
-
-            const reader = new FileReader();
-            reader.onload = () => {
-    
+        input.addEventListener('change', async () => {
+            for (let i = 0; i < input.files.length; ++i) {
+                
+                const binary = !input.files[i].name.endsWith('json');
+                
+                if (importer !== null) {
+                    importer.stop();
+                    importer = null;
+                }
+                
+                const reader = new FileReader();
+                if (binary) {
+                    reader.readAsArrayBuffer(input.files[i]);
+                } else {
+                    reader.readAsText(input.files[i]);
+                }
+                
+                await new Promise(resolve => reader.onload = resolve);
+                
                 if (paused) {
                     paused = false;
                     render();
                 }
-
+                
                 importer = binary ? new BinaryImporter : new JsonImporter;
-                importer.import(reader.result, dimension => {
+                await importer.import(reader.result, dimension => {
                     svgCanvas.style.display = dimension == 3 ? 'none' : null;
                     renderer.domElement.style.display = dimension == 2 ? 'none' : null;
                 }, boundaryGeo => {
@@ -197,14 +205,16 @@
                         mesh.geometry = mesh2.geometry = geo;
                     }
                 }, svgCtx, svgCanvas);
-
-            };
-
-            if (binary) {
-                reader.readAsArrayBuffer(input.files[0]);
-            } else {
-                reader.readAsText(input.files[0]);
             }
+            
+            const zipContent = await exportZipFile.generateAsync({ type:"blob" });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(zipContent);
+            a.download = `seal-images.zip`;
+            a.click();
+            const files = [];
+            exportZipFile.forEach(path => files.push(path));
+            files.forEach(path => exportZipFile.remove(path));
         });
         
         // controls

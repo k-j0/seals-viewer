@@ -29,7 +29,7 @@ class Importer {
 
     async _readNext () { forceImpl('_readNext'); }
 
-    import (data, onSetDimension, onUpdateBoundaryGeo, onUpdateGeo, svgCtx, svgCanvas) {
+    async import (data, onSetDimension, onUpdateBoundaryGeo, onUpdateGeo, svgCtx, svgCanvas) {
         this.data = data;
         this._onSetDimension = onSetDimension;
         this._onUpdateBoundaryGeo = onUpdateBoundaryGeo;
@@ -37,7 +37,7 @@ class Importer {
         this._svgCtx = svgCtx;
         this._svgCanvas = svgCanvas;
         this._prepare();
-        this.play();
+        await this.play();
     }
 
     exportSVG () {
@@ -218,9 +218,10 @@ class JsonImporter extends Importer {
 
 let volumes = [];
 
+export const exportZipFile = new JSZip;
+
 class BinaryImporter extends Importer {
     #idx = 0;
-    #zip = new JSZip;
     #floatView = new DataView(new ArrayBuffer(4));
     #doubleView = new DataView(new ArrayBuffer(8));
 
@@ -299,11 +300,6 @@ class BinaryImporter extends Importer {
     
     async _readNext () {
         if (this.#idx >= this.data.length) {
-            const zipContent = await this.#zip.generateAsync({ type:"blob" });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(zipContent);
-            a.download = `seal-images.zip`;
-            a.click();
             return false;
         }
         
@@ -731,6 +727,20 @@ class BinaryImporter extends Importer {
                                     />`;
                         }
                     }
+                    // for (let i = 0; i < particles.length; ++i) {
+                    //     const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
+                    //     for (let j of particles[i].neighbours) {
+                    //         const to = (1 / svgCanvas.width * pos(particles[j].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[j].position[1]) * sz);
+                    //         svg += `<path
+                    //                     d='M ${from} L ${to}'
+                    //                     stroke='#c2c2c2'
+                    //                     fill='none'
+                    //                     stroke-width='3.5'
+                    //                     stroke-linejoin='round'
+                    //                     stroke-linecap='round'
+                    //                 />`;
+                    //     }
+                    // }
                     if (showSkeleton) {
                         for (let i = 0; i < particles.length; ++i) {
                             const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
@@ -770,7 +780,7 @@ class BinaryImporter extends Importer {
             // start downloading full series of PNGs for the iterations
             const myidx = this.idx;
             ++this.idx;
-            if (myidx % 5 != 0) return true;
+            // if (myidx % 5 != 0) return true;
             const svg = this.exportSVG();
             if (svg === undefined) return;
             const base64 = btoa(svg);
@@ -782,7 +792,7 @@ class BinaryImporter extends Importer {
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            this.#zip.file(`${this.idx}.png`, canvas.toDataURL().split(';base64,')[1], { base64: true });
+            exportZipFile.file(QUICK_MODE ? `${seed}.png` : `${seed}/${myidx}.png`, canvas.toDataURL().split(';base64,')[1], { base64: true });
         }
 
         return true;
