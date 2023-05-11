@@ -219,6 +219,16 @@ class JsonImporter extends Importer {
 let volumes = [];
 
 export const exportZipFile = new JSZip;
+exportZipFile.downloadNow = async () => {
+    const zipContent = await exportZipFile.generateAsync({ type:"blob" });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(zipContent);
+    a.download = `seal-images.zip`;
+    a.click();
+    const files = [];
+    exportZipFile.forEach(path => files.push(path));
+    files.forEach(path => exportZipFile.remove(path));
+};
 
 class BinaryImporter extends Importer {
     #idx = 0;
@@ -689,7 +699,7 @@ class BinaryImporter extends Importer {
                         <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
                 `;
                 
-                const showBoundary = false;
+                const showBoundary = true;
                 if (showBoundary && boundary !== null) {
                     switch (boundary.type) {
                         case 'sphere':
@@ -727,20 +737,20 @@ class BinaryImporter extends Importer {
                                     />`;
                         }
                     }
-                    // for (let i = 0; i < particles.length; ++i) {
-                    //     const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
-                    //     for (let j of particles[i].neighbours) {
-                    //         const to = (1 / svgCanvas.width * pos(particles[j].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[j].position[1]) * sz);
-                    //         svg += `<path
-                    //                     d='M ${from} L ${to}'
-                    //                     stroke='#c2c2c2'
-                    //                     fill='none'
-                    //                     stroke-width='3.5'
-                    //                     stroke-linejoin='round'
-                    //                     stroke-linecap='round'
-                    //                 />`;
-                    //     }
-                    // }
+                    for (let i = 0; i < particles.length; ++i) {
+                        const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
+                        for (let j of particles[i].neighbours) {
+                            const to = (1 / svgCanvas.width * pos(particles[j].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[j].position[1]) * sz);
+                            svg += `<path
+                                        d='M ${from} L ${to}'
+                                        stroke='#c2c2c2'
+                                        fill='none'
+                                        stroke-width='3.5'
+                                        stroke-linejoin='round'
+                                        stroke-linecap='round'
+                                    />`;
+                        }
+                    }
                     if (showSkeleton) {
                         for (let i = 0; i < particles.length; ++i) {
                             const from = (1 / svgCanvas.width * pos(particles[i].position[0]) * sz) + ' ' + (1 / svgCanvas.width * pos(particles[i].position[1]) * sz);
@@ -768,7 +778,7 @@ class BinaryImporter extends Importer {
                     } while (current != 0);
                     svg += `<path
                                 d='M ${points.map(p => `${1 / svgCanvas.width * pos(p[0]) * sz} ${1 / svgCanvas.height * pos(p[1]) * sz}`).join(' L ')} Z'
-                                fill='#000'
+                                fill='#c2c2c2'
                                 stroke-width='1'
                                 stroke='black'
                             />`
@@ -780,7 +790,7 @@ class BinaryImporter extends Importer {
             // start downloading full series of PNGs for the iterations
             const myidx = this.idx;
             ++this.idx;
-            // if (myidx % 5 != 0) return true;
+            if (myidx % 5 != 0) return true;
             const svg = this.exportSVG();
             if (svg === undefined) return;
             const base64 = btoa(svg);

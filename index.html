@@ -207,14 +207,7 @@
                 }, svgCtx, svgCanvas);
             }
             
-            const zipContent = await exportZipFile.generateAsync({ type:"blob" });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(zipContent);
-            a.download = `seal-images.zip`;
-            a.click();
-            const files = [];
-            exportZipFile.forEach(path => files.push(path));
-            files.forEach(path => exportZipFile.remove(path));
+            await exportZipFile.downloadNow();
         });
         
         // controls
