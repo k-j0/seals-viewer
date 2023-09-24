@@ -4,6 +4,7 @@ import { mergeBufferGeometries } from './BufferGeometryUtils.js';
 
 
 const QUICK_MODE = (new URLSearchParams(window.location.search)).has('quick');
+const BATCH_MODE = (new URLSearchParams(window.location.search)).has('batch');
 
 
 function forceImpl (name) {
@@ -216,10 +217,11 @@ class JsonImporter extends Importer {
 
 };
 
-let volumes = [];
-
 export const exportZipFile = new JSZip;
 exportZipFile.downloadNow = async () => {
+    let numFiles = 0;
+    exportZipFile.forEach(_ => ++numFiles);
+    if (numFiles <= 0) return;
     const zipContent = await exportZipFile.generateAsync({ type:"blob" });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(zipContent);
@@ -364,8 +366,6 @@ class BinaryImporter extends Importer {
             } else {
                 throw new Error(`Unsupported boundary type found in binary file: ${boundaryType}.`);
             }
-            volumes.push(volume / boundary.volume);
-            console.log(volumes);
         }
         
         // Read particle positions
@@ -413,25 +413,27 @@ class BinaryImporter extends Importer {
         }
         
         // update statistics
-        this._setStats({
-            seed: seed,
-            tris: numTriangles,
-            particles: numParticles,
-            iterations: iterations,
-            machine: machine,
-            runtime: runtime,
-            attractionMagnitude: attractionMagnitude,
-            repulsionMagnitudeFactor: repulsionMagnitudeFactor,
-            damping: damping,
-            noise: noise,
-            repulsionAnisotropy: repulsionAnisotropy,
-            boundaryType: null,
-            growthStrategy: null,
-            deltaTime: deltaTime,
-            volume: volume,
-            boundaryType: boundary ? `${boundary.type} [volume: ${boundary.volume}]` : null,
-            volumeFraction: boundary && volume ? volume / boundary.volume : null
-        });
+        if (!BATCH_MODE) {
+            this._setStats({
+                seed: seed,
+                tris: numTriangles,
+                particles: numParticles,
+                iterations: iterations,
+                machine: machine,
+                runtime: runtime,
+                attractionMagnitude: attractionMagnitude,
+                repulsionMagnitudeFactor: repulsionMagnitudeFactor,
+                damping: damping,
+                noise: noise,
+                repulsionAnisotropy: repulsionAnisotropy,
+                boundaryType: null,
+                growthStrategy: null,
+                deltaTime: deltaTime,
+                volume: volume,
+                boundaryType: boundary ? `${boundary.type} [volume: ${boundary.volume}]` : null,
+                volumeFraction: boundary && volume ? volume / boundary.volume : null
+            });
+        }
         
         // Display the surface
         if (this.dimension == 3) {
@@ -510,134 +512,57 @@ class BinaryImporter extends Importer {
             
             const svgCtx = this._svgCtx;
             const svgCanvas = this._svgCanvas;
-            
-            svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
-            svgCtx.lineCap = 'round';
-            
+                
             const scaleToBoundaryRadius = false && boundary !== null;
             const pos = (x) => (x * 0.45 * (scaleToBoundaryRadius ? 1/boundary.radius : 2) + 0.5) * svgCanvas.width;
             
-            if (boundary !== null) {
-                switch (boundary.type) {
-                    case 'sphere':
-                        svgCtx.fillStyle = "#fff5";
-                        svgCtx.strokeStyle = '#000';
-                        svgCtx.beginPath();
-                        svgCtx.arc(pos(0), pos(0), svgCanvas.width * 0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius), 0, 2 * Math.PI);
-                        svgCtx.fill();
-                        svgCtx.stroke();
-                        break;
-                    default:
-                        console.error('Unknown boundary type for boundary', boundary, '!');
-                }
-            }
-            
-            if (type.startsWith('t')) {
-                // tree (graph)
+            if (!BATCH_MODE) {
+                svgCtx.clearRect(0, 0, svgCanvas.width, svgCanvas.height);
+                svgCtx.lineCap = 'round';
                 
-                svgCtx.strokeStyle = '#aaa';
-                svgCtx.lineWidth = 0.004 * 2 * svgCanvas.width;
-                for (let i = 0; i < particles.length; ++i) {
-                    const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
-                    for (let j of particles[i].neighbours) {
-                        const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
-                        svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
-                    }
-                }
-                svgCtx.strokeStyle = '#333';
-                svgCtx.lineWidth = 1;
-                const youngs = new Set(youngIndices);
-                for (let i = 0; i < particles.length; ++i) {
-                    svgCtx.beginPath();
-                    svgCtx.fillStyle = i == 0 ? '#ff0' : youngs.has(i) ? '#999' : '#666';
-                    svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
-                    svgCtx.fill();
-                    svgCtx.stroke();
-                }
-                svgCtx.strokeStyle = '#fff';
-                for (let i = 0; i < particles.length; ++i) {
-                    const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
-                    for (let j of particles[i].neighbours) {
-                        const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
-                        svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
-                    }
-                }
-                
-                this.analyse = () => {
-                    
-                    // Horton-Strahler branch complexities
-                    for (let i = 0; i < particles.length; ++i) {
-                        particles[i].hsComplexity = -1;
-                    }
-                    const remainingIndices = new Set(Array(particles.length).keys());
-                    const leafNodesFrom = (i, from = -1) => {
-                        let nodes = [i];
-                        for (const j of particles[i].neighbours) {
-                            if (!remainingIndices.has(j)) continue;
-                            if (j == from) continue;
-                            let numNeighbours = 0;
-                            for (const k of particles[j].neighbours) {
-                                if (!remainingIndices.has(k)) continue;
-                                ++numNeighbours;
-                            }
-                            if (numNeighbours > 2) continue; // not part of the same leaf anymore if it's a branching point
-                            nodes = nodes.concat(leafNodesFrom(j, i));
-                        }
-                        return nodes;
-                    };
-                    while (remainingIndices.size > 0) {
-                        console.group('Remaining: ', remainingIndices.size);
-                        // remove all leaf branches
-                        const markedForDeletion = new Set;
-                        for (const i of remainingIndices) {
-                            ++particles[i].hsComplexity;
-                            
-                            // determines whether the first particle should be assumed attached - if not
-                            if (i == 0 && remainingIndices.size > 1) {
-                                continue;
-                            }
-                            
-                            let numNeighbours = 0;
-                            for (const j of particles[i].neighbours) {
-                                if (remainingIndices.has(j)) {
-                                    ++numNeighbours;
-                                }
-                            }
-                            if (numNeighbours <= 1) {
-                                // tip of leaf node, mark for deletion up until next branching point
-                                const leafNodes = leafNodesFrom(i);
-                                for (const j of leafNodes) {
-                                    markedForDeletion.add(j);
-                                }
-                            }
-                        }
-                        for (const i of markedForDeletion) {
-                            remainingIndices.delete(i);
-                        }
-                        console.log('Removed', markedForDeletion.size);
-                        console.groupEnd();
-                        if (markedForDeletion.length <= 0) {
-                            console.error('Step of H-S complexity computation ended up with no nodes to delete for the next level, but ' + remainingIndices.size + ' indices remain...!');
+                if (boundary !== null) {
+                    switch (boundary.type) {
+                        case 'sphere':
+                            svgCtx.fillStyle = "#fff5";
+                            svgCtx.strokeStyle = '#000';
+                            svgCtx.beginPath();
+                            svgCtx.arc(pos(0), pos(0), svgCanvas.width * 0.45 * (scaleToBoundaryRadius ? 1 : 2 * boundary.radius), 0, 2 * Math.PI);
+                            svgCtx.fill();
+                            svgCtx.stroke();
                             break;
-                        }
+                        default:
+                            console.error('Unknown boundary type for boundary', boundary, '!');
                     }
+                }
+                
+                if (type.startsWith('t')) {
+                    // tree (graph)
                     
-                    // Display H-S BCs
-                    const colours = [
-                        '#0069af',
-                        '#00d3b7',
-                        '#2cdd00',
-                        '#e6e200',
-                        '#eb7100',
-                        '#ff0000',
-                        '#690000'
-                    ];
-                    colours.default = 'magenta';
-                    colours[-1] = 'white';
-                    svgCtx.fillStyle = '#fff';
-                    svgCtx.fillRect(0, 0, svgCanvas.width, svgCanvas.height);
-                    svgCtx.strokeStyle = '#333';
-                    svgCtx.lineWidth = 7;
+                    if (false) {
+                        svgCtx.strokeStyle = '#aaa';
+                        svgCtx.lineWidth = 0.004 * 2 * svgCanvas.width;
+                        for (let i = 0; i < particles.length; ++i) {
+                            const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
+                            for (let j of particles[i].neighbours) {
+                                const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
+                                svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                            }
+                        }
+                        svgCtx.strokeStyle = '#333';
+                        svgCtx.lineWidth = 1;
+                        const youngs = new Set(youngIndices);
+                        for (let i = 0; i < particles.length; ++i) {
+                            svgCtx.beginPath();
+                            svgCtx.fillStyle = i == 0 ? '#ff0' : youngs.has(i) ? '#999' : '#666';
+                            svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                            svgCtx.fill();
+                            svgCtx.stroke();
+                        }
+                        svgCtx.strokeStyle = '#fff';
+                    } else {
+                        svgCtx.strokeStyle = '#000';
+                        svgCtx.lineWidth = 0.3;
+                    }
                     for (let i = 0; i < particles.length; ++i) {
                         const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
                         for (let j of particles[i].neighbours) {
@@ -645,61 +570,146 @@ class BinaryImporter extends Importer {
                             svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
                         }
                     }
-                    // svgCtx.strokeStyle = '#333';
-                    // svgCtx.lineWidth = 1;
-                    // const youngs = new Set(youngIndices);
-                    // for (let i = 0; i < particles.length; ++i) {
-                    //     svgCtx.beginPath();
-                    //     svgCtx.fillStyle = youngs.has(i) ? '#bbb' : '#999';
-                    //     svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
-                    //     svgCtx.fill();
-                    //     svgCtx.stroke();
-                    // }
-                    svgCtx.lineWidth = 3;
-                    for (let complexity = 0; complexity < 10; ++complexity) {
+                    
+                    this.analyse = () => {
+                        
+                        // Horton-Strahler branch complexities
+                        for (let i = 0; i < particles.length; ++i) {
+                            particles[i].hsComplexity = -1;
+                        }
+                        const remainingIndices = new Set(Array(particles.length).keys());
+                        const leafNodesFrom = (i, from = -1) => {
+                            let nodes = [i];
+                            for (const j of particles[i].neighbours) {
+                                if (!remainingIndices.has(j)) continue;
+                                if (j == from) continue;
+                                let numNeighbours = 0;
+                                for (const k of particles[j].neighbours) {
+                                    if (!remainingIndices.has(k)) continue;
+                                    ++numNeighbours;
+                                }
+                                if (numNeighbours > 2) continue; // not part of the same leaf anymore if it's a branching point
+                                nodes = nodes.concat(leafNodesFrom(j, i));
+                            }
+                            return nodes;
+                        };
+                        while (remainingIndices.size > 0) {
+                            console.group('Remaining: ', remainingIndices.size);
+                            // remove all leaf branches
+                            const markedForDeletion = new Set;
+                            for (const i of remainingIndices) {
+                                ++particles[i].hsComplexity;
+                                
+                                // determines whether the first particle should be assumed attached - if not
+                                if (i == 0 && remainingIndices.size > 1) {
+                                    continue;
+                                }
+                                
+                                let numNeighbours = 0;
+                                for (const j of particles[i].neighbours) {
+                                    if (remainingIndices.has(j)) {
+                                        ++numNeighbours;
+                                    }
+                                }
+                                if (numNeighbours <= 1) {
+                                    // tip of leaf node, mark for deletion up until next branching point
+                                    const leafNodes = leafNodesFrom(i);
+                                    for (const j of leafNodes) {
+                                        markedForDeletion.add(j);
+                                    }
+                                }
+                            }
+                            for (const i of markedForDeletion) {
+                                remainingIndices.delete(i);
+                            }
+                            console.log('Removed', markedForDeletion.size);
+                            console.groupEnd();
+                            if (markedForDeletion.length <= 0) {
+                                console.error('Step of H-S complexity computation ended up with no nodes to delete for the next level, but ' + remainingIndices.size + ' indices remain...!');
+                                break;
+                            }
+                        }
+                        
+                        // Display H-S BCs
+                        const colours = [
+                            '#0069af',
+                            '#00d3b7',
+                            '#2cdd00',
+                            '#e6e200',
+                            '#eb7100',
+                            '#ff0000',
+                            '#690000'
+                        ];
+                        colours.default = 'magenta';
+                        colours[-1] = 'white';
+                        svgCtx.fillStyle = '#fff';
+                        svgCtx.fillRect(0, 0, svgCanvas.width, svgCanvas.height);
+                        svgCtx.strokeStyle = '#333';
+                        svgCtx.lineWidth = 7;
                         for (let i = 0; i < particles.length; ++i) {
                             const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
                             for (let j of particles[i].neighbours) {
-                                
-                                // Horton-Strahler complexity of the branch as the lowest among the two nodes
-                                const hsComplexity = Math.min(particles[i].hsComplexity, particles[j].hsComplexity);
-                                if (hsComplexity != complexity) continue;
-                                
                                 const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
-                                svgCtx.strokeStyle = colours[hsComplexity >= colours.length ? 'default' : hsComplexity];
                                 svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
                             }
                         }
-                    }
+                        // svgCtx.strokeStyle = '#333';
+                        // svgCtx.lineWidth = 1;
+                        // const youngs = new Set(youngIndices);
+                        // for (let i = 0; i < particles.length; ++i) {
+                        //     svgCtx.beginPath();
+                        //     svgCtx.fillStyle = youngs.has(i) ? '#bbb' : '#999';
+                        //     svgCtx.ellipse(pos(particles[i].position[0]), pos(particles[i].position[1]), 0.004 * svgCanvas.width, 0.004 * svgCanvas.height, 2*Math.PI, 0, 2*Math.PI);
+                        //     svgCtx.fill();
+                        //     svgCtx.stroke();
+                        // }
+                        svgCtx.lineWidth = 3;
+                        for (let complexity = 0; complexity < 10; ++complexity) {
+                            for (let i = 0; i < particles.length; ++i) {
+                                const from = pos(particles[i].position[0]) + ' ' + pos(particles[i].position[1]);
+                                for (let j of particles[i].neighbours) {
+                                    
+                                    // Horton-Strahler complexity of the branch as the lowest among the two nodes
+                                    const hsComplexity = Math.min(particles[i].hsComplexity, particles[j].hsComplexity);
+                                    if (hsComplexity != complexity) continue;
+                                    
+                                    const to = pos(particles[j].position[0]) + ' ' + pos(particles[j].position[1]);
+                                    svgCtx.strokeStyle = colours[hsComplexity >= colours.length ? 'default' : hsComplexity];
+                                    svgCtx.stroke(new Path2D(`M ${from} L ${to}`));
+                                }
+                            }
+                        }
+                        
+                    };
                     
-                };
-                
-            } else {
-                // 'surface' (i.e. continuous line)
-                let current = 0;
-                let path = 'M ';
-                svgCtx.fillStyle = '#fff';
-                svgCtx.strokeStyle = '#000';
-                do {
-                    let point = particles[current];
-                    path += pos(point.position[0]) + ' ' + pos(point.position[1]) + ' ';
-                    current = point.next;
-                    if (current == 0) path += 'Z';
-                    else path += 'L ';
-                } while (current != 0);
-                // (no fill for trees)
-                svgCtx.fill(new Path2D(path));
-                svgCtx.stroke(new Path2D(path));
+                } else {
+                    // 'surface' (i.e. continuous line)
+                    let current = 0;
+                    let path = 'M ';
+                    svgCtx.fillStyle = '#fff';
+                    svgCtx.strokeStyle = '#000';
+                    do {
+                        let point = particles[current];
+                        path += pos(point.position[0]) + ' ' + pos(point.position[1]) + ' ';
+                        current = point.next;
+                        if (current == 0) path += 'Z';
+                        else path += 'L ';
+                    } while (current != 0);
+                    // (no fill for trees)
+                    svgCtx.fill(new Path2D(path));
+                    svgCtx.stroke(new Path2D(path));
+                }
             }
             
             this.exportSVG = () => {
                 const sz = 1024;
+                const showBoundary = true;
+                
                 let svg = `
                     <svg width='${sz}' height='${sz}' xmlns='http://www.w3.org/2000/svg'>
                         <path d='M 0 0 h ${sz} v ${sz} h ${-sz} Z' fill='white' />
                 `;
                 
-                const showBoundary = true;
                 if (showBoundary && boundary !== null) {
                     switch (boundary.type) {
                         case 'sphere':
@@ -778,7 +788,7 @@ class BinaryImporter extends Importer {
                     } while (current != 0);
                     svg += `<path
                                 d='M ${points.map(p => `${1 / svgCanvas.width * pos(p[0]) * sz} ${1 / svgCanvas.height * pos(p[1]) * sz}`).join(' L ')} Z'
-                                fill='#c2c2c2'
+                                fill='#000'
                                 stroke-width='1'
                                 stroke='black'
                             />`
@@ -787,10 +797,13 @@ class BinaryImporter extends Importer {
                 return svg;
             };
             
+            return true;
             // start downloading full series of PNGs for the iterations
+            const isLast = this.#idx >= this.data.length;
             const myidx = this.idx;
             ++this.idx;
-            if (myidx % 5 != 0) return true;
+            if (!isLast && myidx % 5 != 0) return true;
+            // if (![1, 2, 3, 5, 8, 13, 21, 34, 258].find(idx => idx == myidx)) return true;
             const svg = this.exportSVG();
             if (svg === undefined) return;
             const base64 = btoa(svg);
@@ -802,7 +815,15 @@ class BinaryImporter extends Importer {
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            exportZipFile.file(QUICK_MODE ? `${seed}.png` : `${seed}/${myidx}.png`, canvas.toDataURL().split(';base64,')[1], { base64: true });
+            const imgData = canvas.toDataURL().split(';base64,')[1];
+            if (QUICK_MODE) {
+                exportZipFile.file(`${seed}.png`, imgData, { base64: true });
+            } else {
+                exportZipFile.file(`progress/${seed}/${myidx}.png`, imgData, { base64: true });
+                if (isLast) {
+                    exportZipFile.file(`${seed}.png`, imgData, { base64: true });
+                }
+            }
         }
 
         return true;
